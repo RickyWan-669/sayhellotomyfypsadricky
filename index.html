@@ -2121,7 +2121,7 @@
             });
         }
         
-        // 開始導航
+        // 開始導航 - 修正版
         function startNavigation() {
             if (!selectedArtwork) {
                 alert("請先選擇一個藝術品！");
@@ -2135,6 +2135,9 @@
             
             // 開始導航
             isNavigating = true;
+            
+            // 確保directionsRenderer連接到當前地圖，無論當前模式為何
+            directionsRenderer.setMap(map);
             
             // 更新按鈕文字
             document.getElementById('startNavigation').innerHTML = 
@@ -2190,7 +2193,7 @@
             updateMapMode();
         }
         
-        // 更新地圖模式
+        // 更新地圖模式 - 修正版
         function updateMapMode() {
             const toggleBtn = document.getElementById('mapToggle');
             
@@ -2211,10 +2214,8 @@
             }
             
             // 在兩種地圖模式下都顯示導航路線（如果正在導航）
-            if (isNavigating && directionsRenderer) {
+            if (isNavigating) {
                 directionsRenderer.setMap(map);
-            } else if (directionsRenderer) {
-                directionsRenderer.setMap(null);
             }
         }
         
@@ -2955,6 +2956,9 @@
                 isNavigating = true;
                 document.getElementById('navigateBtn').innerHTML = 
                     '<i class="fas fa-stop-circle"></i>停止導航';
+                
+                // 確保directionsRenderer連接到當前地圖，無論當前模式為何
+                directionsRenderer.setMap(map);
                 
                 // 更新導航路線
                 if (userMarker) {
