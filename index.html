@@ -1,0 +1,3245 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>藝術地圖導航</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+    <style>
+        :root {
+            --primary-color: #4c85aa;
+            --light-bg: #FFFFFF;
+            --dark-bg: #181818;
+            --light-text: #333333;
+            --dark-text: #F0F0F0;
+            --marker-color: #FF6B6B;
+            --marker-active: #FF4500;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: var(--light-bg);
+            color: var(--light-text);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: var(--dark-bg);
+                color: var(--dark-text);
+            }
+        }
+
+        .app-container {
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 16px;
+        }
+
+        .map-container {
+            position: relative;
+            width: 100%;
+            height: calc(100vh - 120px);
+            min-height: 400px;
+            overflow: hidden;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 16px;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .map-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .control-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s ease;
+        }
+
+        .control-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .map-toggle {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 20;
+            background-color: var(--primary-color);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+        }
+
+        /* Circular art development button */
+        .art-development-btn {
+            position: absolute;
+            top: 60px;
+            left: 10px;
+            z-index: 20;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            overflow: hidden;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s ease;
+            border: 2px solid white;
+        }
+
+        .art-development-btn img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .art-development-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .art-selector {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+            justify-content: center;
+        }
+
+        /* Updated art-option to use circular images */
+        .art-option {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 80px;
+        }
+
+        .art-option-img {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .art-option-text {
+            font-size: 14px;
+            text-align: center;
+            margin-top: 5px;
+            transition: all 0.2s ease;
+        }
+
+        .art-option.active .art-option-img {
+            border-color: var(--primary-color);
+            transform: scale(1.1);
+        }
+
+        .art-option.active .art-option-text {
+            color: var(--primary-color);
+            font-weight: bold;
+        }
+
+        .start-nav-btn {
+            padding: 12px 20px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin: 0 auto;
+            width: 100%;
+            max-width: 300px;
+            justify-content: center;
+        }
+
+        .start-nav-btn:hover {
+            background-color: #4949b3;
+            transform: translateY(-2px);
+        }
+
+        .start-nav-btn:active {
+            transform: translateY(0);
+        }
+
+        #art-detail-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: var(--light-bg);
+            color: var(--light-text);
+            padding: 20px;
+            border-radius: 20px 20px 0 0;
+            z-index: 100;
+            box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.1);
+            transform: translateY(100%);
+            transition: transform 0.3s ease-out;
+            max-height: 90vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+            overscroll-behavior: contain; /* Prevent page refresh on pull */
+            will-change: transform; /* Improve rendering performance */
+            backface-visibility: hidden; /* Further improve rendering */
+        }
+
+        #art-development-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: var(--light-bg);
+            color: var(--light-text);
+            padding: 20px;
+            border-radius: 20px 20px 0 0;
+            z-index: 100;
+            box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.1);
+            transform: translateY(100%);
+            transition: transform 0.3s ease-out;
+            max-height: 90vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+            will-change: transform;
+            backface-visibility: hidden;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            #art-detail-panel, #art-development-panel {
+                background-color: var(--dark-bg);
+                color: var(--dark-text);
+                box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.5);
+            }
+
+            .art-option {
+                color: #f0f0f0;
+            }
+        }
+
+        #art-detail-panel.active, #art-development-panel.active {
+            transform: translateY(0);
+        }
+
+        .close-btn {
+            background-color: #FF6B6B;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .interaction-button {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: all 0.2s ease;
+            width: 100%;
+        }
+
+        .interaction-button:hover {
+            background-color: #4949b3;
+            transform: translateY(-2px);
+        }
+
+        .interaction-button:active {
+            transform: translateY(0);
+        }
+
+        video:focus {
+            outline: none;
+        }
+
+        /* 載入動畫 */
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            color: white;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .quiz-container {
+            margin-top: 15px;
+        }
+
+        .color-palette {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .color-swatch {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .color-swatch:hover, .color-swatch.active {
+            transform: scale(1.1);
+        }
+
+        /* 互動式對話框 */
+        .ui-dialog {
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .ui-dialog .ui-dialog-titlebar {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 0;
+            padding: 15px;
+        }
+
+        .ui-dialog .ui-dialog-content {
+            padding: 20px;
+        }
+
+        .ui-dialog .ui-dialog-titlebar-close {
+            background: white;
+            border-radius: 50%;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .ui-dialog {
+                background-color: var(--dark-bg);
+                color: var(--dark-text);
+            }
+            
+            .ui-dialog .ui-dialog-content {
+                background-color: var(--dark-bg);
+                color: var(--dark-text);
+            }
+        }
+
+        /* 藝術家資訊面板 */
+        .artist-info-container {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            background-color: rgba(93, 92, 222, 0.1);
+        }
+
+        .artist-info-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .artist-section {
+            margin-bottom: 15px;
+        }
+
+        .section-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .detail-tag {
+            display: inline-block;
+            background-color: var(--primary-color);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            margin-right: 6px;
+            margin-bottom: 6px;
+        }
+
+        /* Updated viewing point style to hide descriptions initially */
+        .viewing-point {
+            background-color: rgba(0, 0, 0, 0.05);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .dark .viewing-point {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .viewing-point-title {
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-bottom: 5px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .viewing-point-title i {
+            transition: all 0.3s ease;
+        }
+
+        .viewing-point-title.expanded i {
+            transform: rotate(180deg);
+        }
+
+        .viewing-point-description {
+            margin-top: 8px;
+            display: none;
+        }
+
+        .viewing-point-description.visible {
+            display: block;
+        }
+
+        .tab-container {
+            display: flex;
+            overflow-x: auto;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 15px;
+            padding-bottom: 2px;
+            -ms-overflow-style: none;  /* Hide scrollbar in IE and Edge */
+            scrollbar-width: none;  /* Hide scrollbar in Firefox */
+        }
+
+        .tab-container::-webkit-scrollbar {
+            display: none;  /* Hide scrollbar in Chrome, Safari and Opera */
+        }
+
+        .dark .tab-container {
+            border-color: #444;
+        }
+
+        .tab {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .tab.active {
+            border-bottom: 2px solid var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .feature-list {
+            list-style-type: disc;
+            margin-left: 20px;
+        }
+
+        .art-detail-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .detail-btn {
+            flex: 1;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .detail-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .detail-btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .detail-btn-secondary {
+            background-color: rgba(93, 92, 222, 0.1);
+            color: var(--primary-color);
+        }
+
+        /* 藝術歷史背景區塊 */
+        .history-section {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .dark .history-section {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .history-timeline {
+            margin-top: 15px;
+        }
+
+        .timeline-item {
+            display: flex;
+            margin-bottom: 15px;
+        }
+
+        .timeline-year {
+            flex: 0 0 100px;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .timeline-content {
+            flex: 1;
+        }
+
+        /* 作品圖片輪播 */
+        .artwork-gallery {
+            position: relative;
+            width: 100%;
+            height: 250px;
+            overflow: hidden;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        .gallery-container {
+            display: flex;
+            transition: transform 0.3s ease;
+            height: 100%;
+            will-change: transform;
+        }
+
+        .gallery-item {
+            min-width: 100%;
+            height: 100%;
+        }
+
+        .gallery-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            will-change: transform;
+            transform: translateZ(0);
+        }
+
+        .gallery-nav {
+            position: absolute;
+            bottom: 15px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .gallery-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+        }
+
+        .gallery-dot.active {
+            background-color: white;
+        }
+
+        .gallery-prev, .gallery-next {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: rgba(0, 0, 0, 0.3);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 5;
+        }
+
+        .gallery-prev {
+            left: 10px;
+        }
+
+        .gallery-next {
+            right: 10px;
+        }
+
+        /* 展開閱讀更多按鈕 */
+        .read-more-btn {
+            display: inline-block;
+            color: var(--primary-color);
+            cursor: pointer;
+            margin-left: 5px;
+            font-weight: bold;
+        }
+
+        .artwork-description-short {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            line-clamp: 3;
+            -webkit-box-orient: vertical;
+        }
+
+        /* 藝術家社交媒體連結 */
+        .artist-social-links {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .social-link {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .social-link:hover {
+            transform: scale(1.1);
+            background-color: #4949b3;
+        }
+
+        /* 留言板 */
+        .comment-board {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            background-color: rgba(93, 92, 222, 0.05);
+        }
+
+        .comment-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .comment-input {
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            font-size: 16px;
+            resize: none;
+        }
+
+        .comment-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .comment-item {
+            padding: 12px;
+            border-radius: 8px;
+            background-color: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .dark .comment-item {
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .comment-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .comment-author {
+            font-weight: bold;
+        }
+
+        .comment-date {
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        /* 問答遊戲 */
+        .quiz-section {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            background-color: rgba(93, 92, 222, 0.05);
+        }
+
+        .quiz-question {
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .quiz-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .quiz-option {
+            padding: 10px 15px;
+            border-radius: 8px;
+            background-color: rgba(255, 255, 255, 0.8);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .dark .quiz-option {
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .quiz-option:hover {
+            background-color: rgba(93, 92, 222, 0.1);
+        }
+
+        .quiz-option.correct {
+            background-color: rgba(76, 175, 80, 0.2);
+            border: 1px solid #4CAF50;
+        }
+
+        .quiz-option.incorrect {
+            background-color: rgba(244, 67, 54, 0.2);
+            border: 1px solid #F44336;
+        }
+
+        .quiz-result {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .quiz-result.correct {
+            background-color: rgba(76, 175, 80, 0.1);
+            color: #4CAF50;
+        }
+
+        .quiz-result.incorrect {
+            background-color: rgba(244, 67, 54, 0.1);
+            color: #F44336;
+        }
+
+        /* Video container */
+        .video-container {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            height: 0;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .video-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+            border: none;
+        }
+
+        /* Enhanced Season Guessing Game */
+        .season-game-container {
+            margin-top: 15px;
+            background-color: rgba(93, 92, 222, 0.08);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .season-picker {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .season-btn {
+            flex: 1;
+            min-width: 80px;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background-color: white;
+            border: 2px solid transparent;
+        }
+
+        .dark .season-btn {
+            background-color: #333;
+            color: #f0f0f0;
+        }
+
+        .season-btn.active {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            transform: scale(1.05);
+        }
+
+        .season-btn i {
+            margin-right: 6px;
+        }
+
+        .cat-designer {
+            margin-top: 20px;
+        }
+
+        .cat-preview {
+            width: 100%;
+            height: 180px;
+            background-color: #f5f5f5;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            margin-bottom: 15px;
+        }
+
+        .dark .cat-preview {
+            background-color: #222;
+        }
+
+        .cat-base {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -40%);
+            width: 120px;
+            height: 150px;
+        }
+
+        .cat-clothes {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            left: 0;
+            top: 0;
+            pointer-events: none;
+        }
+
+        .design-tools {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .tool-section {
+            margin-bottom: 10px;
+        }
+
+        .tool-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+        }
+
+        .tool-title i {
+            margin-right: 6px;
+            color: var(--primary-color);
+        }
+
+        .pattern-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .pattern-option {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            overflow: hidden;
+        }
+
+        .pattern-option.active {
+            border-color: var(--primary-color);
+            transform: scale(1.1);
+        }
+
+        .pattern-option img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .save-design-btn {
+            margin-top: 10px;
+            background-color: var(--primary-color);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+            font-size: 14px;
+            width: 100%;
+        }
+
+        .save-design-btn:hover {
+            background-color: #4949b3;
+            transform: translateY(-2px);
+        }
+
+        .season-feedback {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: bold;
+            display: none;
+        }
+
+        .season-feedback.correct {
+            background-color: rgba(76, 175, 80, 0.1);
+            color: #4CAF50;
+            display: block;
+        }
+
+        .season-feedback.incorrect {
+            background-color: rgba(244, 67, 54, 0.1);
+            color: #F44336;
+            display: block;
+        }
+
+        /* 響應式設計 - Enhanced for mobile */
+        @media (max-width: 768px) {
+            .map-container {
+                height: calc(100vh - 200px);
+                min-height: 300px;
+            }
+            
+            .art-option {
+                width: 70px;
+            }
+            
+            .art-option-img {
+                width: 60px;
+                height: 60px;
+            }
+            
+            .art-option-text {
+                font-size: 12px;
+            }
+
+            .art-detail-buttons {
+                flex-direction: column;
+            }
+
+            .timeline-item {
+                flex-direction: column;
+            }
+
+            .timeline-year {
+                margin-bottom: 5px;
+            }
+            
+            #art-detail-panel, #art-development-panel {
+                padding: 15px;
+                max-height: 85vh;
+            }
+            
+            .tab {
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+            
+            .viewing-point-title {
+                font-size: 14px;
+            }
+            
+            .gallery-prev, .gallery-next {
+                width: 35px;
+                height: 35px;
+            }
+            
+            .start-nav-btn {
+                padding: 10px 16px;
+                font-size: 15px;
+            }
+            
+            .season-btn {
+                padding: 6px 10px;
+                font-size: 13px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="map-container">
+            <div id="map"></div>
+            <div class="map-toggle" id="mapToggle">
+                <i class="fas fa-map mr-2"></i><span>切換地圖</span>
+            </div>
+            <div class="art-development-btn" id="artDevelopmentBtn">
+                <img src="https://i.imgur.com/S8HHhc1.png" alt="Art Development" />
+            </div>
+            <div class="map-controls">
+                <div class="control-btn" id="centerMap">
+                    <i class="fas fa-crosshairs"></i>
+                </div>
+                <div class="control-btn" id="zoomIn">
+                    <i class="fas fa-plus"></i>
+                </div>
+                <div class="control-btn" id="zoomOut">
+                    <i class="fas fa-minus"></i>
+                </div>
+            </div>
+        </div>
+        <div class="art-selector" id="artSelector"></div>
+        <button class="start-nav-btn" id="startNavigation">
+            <i class="fas fa-directions"></i>
+            開始導航
+        </button>
+        <div id="art-detail-panel">
+            <button class="close-btn" id="closeDetail">
+                <i class="fas fa-times"></i>
+            </button>
+            
+            <div class="tab-container" id="detailTabs">
+                <div class="tab active" data-tab="artwork">作品資訊</div>
+                <div class="tab" data-tab="artist">藝術家資訊</div>
+                <div class="tab" data-tab="history">藝術歷史</div>
+                <div class="tab" data-tab="quiz">趣味問答</div>
+                <div class="tab" data-tab="comments">留言板</div>
+            </div>
+            
+            <div class="tab-content active" data-content="artwork">
+                <!-- 作品圖片輪播 -->
+                <div class="artwork-gallery">
+                    <div class="gallery-container" id="artworkGallery"></div>
+                    <div class="gallery-prev">
+                        <i class="fas fa-chevron-left"></i>
+                    </div>
+                    <div class="gallery-next">
+                        <i class="fas fa-chevron-right"></i>
+                    </div>
+                    <div class="gallery-nav" id="galleryNav"></div>
+                </div>
+                
+                <h2 id="artTitle" class="text-xl font-bold mb-2"></h2>
+                <div id="artIntro" class="mb-3 text-sm text-gray-600 dark:text-gray-400"></div>
+                <div id="artYearLocation" class="text-sm text-gray-600 dark:text-gray-400 mb-2"></div>
+                
+                <div class="mb-4">
+                    <div id="artDescriptionShort" class="artwork-description-short"></div>
+                    <div id="artDescriptionFull" style="display: none;"></div>
+                    <span id="readMoreBtn" class="read-more-btn">閱讀更多</span>
+                </div>
+                
+                <div id="artMedia" class="mb-4 hidden">
+                    <div class="video-container">
+                        <iframe id="artVideo" frameborder="0" allowfullscreen></iframe>
+                    </div>
+                </div>
+                
+                <h3 class="text-lg font-semibold mb-2">導賞角度</h3>
+                <div id="artViewingPoints" class="mb-4"></div>
+                
+                <div id="artInteraction" class="hidden">
+                    <h3 class="text-lg font-semibold mb-2">互動內容</h3>
+                    <div id="interactionContent"></div>
+                </div>
+                
+                <div class="art-detail-buttons">
+                    <button id="artistInfoBtn" class="detail-btn detail-btn-secondary">
+                        <i class="fas fa-palette"></i>藝術家資訊
+                    </button>
+                    <button id="navigateBtn" class="detail-btn detail-btn-primary">
+                        <i class="fas fa-directions"></i>開始導航
+                    </button>
+                </div>
+            </div>
+            
+            <div class="tab-content" data-content="artist">
+                <div id="artistInfo" class="mb-4"></div>
+                
+                <h3 class="text-lg font-semibold mb-2">藝術家社交媒體</h3>
+                <div id="artistSocialLinks" class="artist-social-links"></div>
+            </div>
+            
+            <div class="tab-content" data-content="history">
+                <h3 class="text-lg font-semibold mb-3">屯門社區藝術發展</h3>
+                <div class="history-section">
+                    <h4 class="text-md font-semibold mb-2">屯門河演變史</h4>
+                    <div class="history-timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-year">1990年代</div>
+                            <div class="timeline-content">工商業廢水、住宅污水流入河道，嚴重影響屯門河的水質，污染嚴重，被戲稱「臭河」。</div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-year">2010年代</div>
+                            <div class="timeline-content">政府啟動「非凡！屯門河」計畫，結合治污工程與公共藝術活化。</div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-year">2020年後</div>
+                            <div class="timeline-content">生態復甦，候鳥棲息，河畔成為市民散步、緩步跑熱點。公共藝術裝置沿河設置，成為新地標。</div>
+                        </div>
+                    </div>
+                    
+                    <h4 class="text-md font-semibold mb-2 mt-4">屯門公共藝術發展</h4>
+                    <p class="mb-3">屯門作為香港的新市鎮，近年積極推動公共藝術。「非凡！屯門河」項目由藝術推廣辦事處發起，於2023年邀請六組本地藝術家沿屯門河創作，提升河畔的藝術氛圍。</p>
+                    <p>過去，屯門河因污染被稱為「臭河」，但經過政府多年的河道整治與活化計劃，生態逐漸恢復，成為候鳥棲息地。這項目不僅美化環境，還讓居民與遊客重新認識屯門的文化與自然價值，豐富社區的藝術景觀。</p>
+                </div>
+            </div>
+            
+            <div class="tab-content" data-content="quiz">
+                <div class="quiz-section">
+                    <h3 class="text-lg font-semibold mb-3">趣味問答</h3>
+                    <div id="quizContainer"></div>
+                </div>
+                
+                <div class="mt-4">
+                    <h3 class="text-lg font-semibold mb-3">小遊戲</h3>
+                    <div id="miniGameContainer"></div>
+                </div>
+            </div>
+            
+            <div class="tab-content" data-content="comments">
+                <div class="comment-board">
+                    <h3 class="text-lg font-semibold mb-3">留言板</h3>
+                    <div class="comment-form">
+                        <textarea class="comment-input" id="commentInput" rows="3" placeholder="分享你對這件作品的感受..."></textarea>
+                        <button id="submitComment" class="interaction-button">提交留言</button>
+                    </div>
+                    <div class="comment-list" id="commentList"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="art-development-panel">
+            <button class="close-btn" id="closeArtDevelopment">
+                <i class="fas fa-times"></i>
+            </button>
+            
+            <h2 class="text-xl font-bold mb-4">屯門藝術發展</h2>
+            
+            <div class="mb-4">
+                <h3 class="text-lg font-semibold mb-2">非凡！屯門河</h3>
+                <p class="mb-3">屯門作為香港的新市鎮，近年積極推動公共藝術。「非凡！屯門河」項目由藝術推廣辦事處發起，於2023年邀請六組本地藝術家沿屯門河創作，提升河畔的藝術氛圍。</p>
+                <p>過去，屯門河因污染被稱為「臭河」，但經過政府多年的河道整治與活化計劃，生態逐漸恢復，成為候鳥棲息地。這項目不僅美化環境，還讓居民與遊客重新認識屯門的文化與自然價值，豐富社區的藝術景觀。</p>
+            </div>
+            
+            <div class="mb-4">
+                <h3 class="text-lg font-semibold mb-2">藝術項目發展歷程</h3>
+                <div class="history-timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-year">2018年</div>
+                        <div class="timeline-content">屯門區議會推動首個社區藝術計劃，邀請本地藝術家在公共空間創作。</div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-year">2020年</div>
+                        <div class="timeline-content">「非凡！屯門河」計劃正式啟動，展開屯門河公共藝術項目規劃。</div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-year">2022年</div>
+                        <div class="timeline-content">完成六組藝術品的設計與製作，包括《屯門無限傳說》、《與貓為畔》、《河樹山家族》和《團門》等。</div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-year">2023年</div>
+                        <div class="timeline-content">藝術品正式在屯門河畔及周邊公園設置完成，吸引市民與遊客前來參觀。</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div>
+                <h3 class="text-lg font-semibold mb-2">藝術作品主題</h3>
+                <p class="mb-3">屯門河畔藝術作品融合了社區歷史、生態環境與日常生活元素，通過不同媒材呈現屯門獨特的文化景觀。作品不僅是視覺藝術，更鼓勵觀眾互動參與，讓公共藝術融入社區生活。</p>
+                <p>藝術家們多為本地創作者，許多人與屯門有深厚連結，通過作品記錄與重新詮釋屯門的過去、現在與未來，為這個社區注入新的文化活力。</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 載入中動畫 -->
+    <div class="loading" id="loadingScreen">
+        <div class="loading-spinner"></div>
+        <p>正在載入地圖資料...</p>
+    </div>
+
+    <!-- 藝術標點圖示 -->
+    <div style="display: none;">
+        <img id="art-punctuation-1" src="https://i.imgur.com/T3aGijV.jpeg" alt="Art Punctuation 1" />
+        <img id="art-punctuation-2" src="https://i.imgur.com/yW3MvdP.png" alt="Art Punctuation 2" />
+        <img id="art-punctuation-3" src="https://i.imgur.com/RD0U5ys.png" alt="Art Punctuation 3" />
+        <img id="art-punctuation-4" src="https://i.imgur.com/QSsV5j5.png" alt="Art Punctuation 4" />
+        
+        <!-- Cat design game assets -->
+        <img id="cat-base" src="https://i.imgur.com/kOkh5Ra.png" alt="Cat Base" />
+        <img id="pattern-spring" src="https://i.imgur.com/xvDCTYr.jpg" alt="Spring Pattern" />
+        <img id="pattern-summer" src="https://i.imgur.com/FIFVwXE.jpg" alt="Summer Pattern" />
+        <img id="pattern-autumn" src="https://i.imgur.com/pOMQoOJ.jpg" alt="Autumn Pattern" />
+        <img id="pattern-winter" src="https://i.imgur.com/eTFvF7q.jpg" alt="Winter Pattern" />
+    </div>
+    
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+    <script>
+        // 等待地圖API和DOM載入
+        let map, directionsService, directionsRenderer;
+        let userMarker, userWatchId;
+        let selectedArtwork = null;
+        let isNavigating = false;
+        let mapMode = 'custom'; // 'custom' 或 'google'
+        let handDrawnMap;
+        let currentGalleryIndex = 0;
+
+        // 定義藝術品數據
+        const artworks = [
+            {
+                id: 0,
+                title: "屯門無限傳說",
+                position: { lat: 22.402687919768802, lng: 113.97612264861525 },
+                customPosition: { x: 70, y: 25 },
+                shortDesc: "是由「無限」個屯門小故事集結而成的雕塑系列",
+                description: "《屯門無限傳說》— 顧名思義是由「無限」個屯門小故事集結而成。藝術團隊「耳製涼房」的兩位成員本着「從零到無限」的創作宗旨，在屯門派發小報，並設街站收集街坊對社區的回憶、感受和奇想。受街坊們的啓發，「耳製涼房」以屯門的歷史、日常生活題材、甚至一些奇談趣聞為創作原點，繼而加入天馬行空的想像，製作了一組六件鑄銅雕塑。這系列的作品旨在打開觀眾對屯門的無限想像，讓這些屯門小故事可以成為街坊口耳相傳的屯門傳說。(強烈建議配合延伸閱讀中的《屯門友段故》一同欣賞藝術品)",
+                introduction: "作品:《屯門無限傳說》  \n藝術家: 耳製涼房（鄭淑宜及梁嘉賢） \n創作物料: 銅 \n作品位置: 屯門河畔公園 ",
+                fullDescription: "《屯門無限傳說》由「耳製涼房」的鄭淑宜及梁嘉賢攜手創作，兩人同是藝術家，也是大學同學，而且都在屯門長大。這次二人搜集起有關屯門的傳說，並根據這些故事製作了一組6件鑄銅雕塑設於屯門河邊。「講故事一般都是老人家比較多，我們就覺得如果能夠為屯門的新一代展開新話題，或許他們對這一區的感覺會更深。」鄭淑宜憶述小時候街坊會圍在一起談論古怪傳說，而現在卻少了這種聯繫，所以她們盼雕塑作品能再次喚起話題，拉近街坊之間的距離。\n\n以雕塑作品《九座牛》為例，過去提到屯門，人們都會想起牛，而對於牛則有很多種說法。其中一個街坊就跟兩人提到，以前交通沒有像現在這般發達，還沒有西鐵，市區很多人都以為屯門的居民都是騎牛上學，聽到這裏她們和街坊產生了共鳴，繼而創作了一個以「屯門牛」作為藍本的作品，從騎牛的雕塑延伸探索這傳說的迷思。而雕塑《神奇大洞牆》的故事來自大興邨的一面牆，傳說牆上有一個洞，要是孩子從一邊穿過去會變矮，從另一邊穿就會變長，所以現在就用東西在牆上擋着，防止孩子亂穿這牆上的洞。「我們希望他們看雕塑的時候能夠想想，這些事物與自己有什麼聯繫，激發他們對自己社區的好奇心。」",
+                videoSrc: "https://www.youtube.com/embed/yVNrAt2fShM?rel=0",
+                gallery: [
+                    "https://i.imgur.com/p4YNqxQ.jpeg",
+                    "https://i.imgur.com/Cq3rVnY.jpeg",
+                    "https://i.imgur.com/NE3ueW0.jpeg",
+                    "https://i.imgur.com/GUL9VBh.jpeg",
+                    "https://i.imgur.com/TUM8g71.jpeg",
+                    "https://i.imgur.com/Lkcle5o.jpeg"
+                ],
+                artist: {
+                    name: "耳製涼房（鄭淑宜、梁嘉賢）",
+                    background: "耳製涼房於2009年成立，是耳屎人（Eastman）和涼瓜（梁嘉賢）用來創製作品的小房間，亦是兩位成員共同創作的單位名稱。",
+                    style: "二人擅長使用陶泥、布料、現成物等物料製作雕塑，把日常未能實行的創作奇想，以輕鬆手法呈現 ，作品充滿懷舊敘事與幽默感",
+                    otherWorks: "《面青花》（藝途畫廊 ，2014年）、聯展《玩‧想》（合舍，2018年)、《Boing!! 夏令藝術市場》（奧沙畫廊，2013年）《大館友故怪》(大館，2023)"
+                },
+                social: [
+                    { platform: "Instagram", icon: "fab fa-instagram", url: "https://www.instagram.com/coldearsfactory/" },
+                    { platform: "Facebook", icon: "fab fa-facebook-f", url: "https://www.facebook.com/p/%E5%B1%AF%E9%96%80%E5%8F%8B%E6%AE%B5%E6%95%85-100068617520594/" },
+                    { platform: "Blog", icon: "fas fa-blog", url: "https://coldearsfactory.blogspot.com/?fbclid=PAZXh0bgNhZW0CMTEAAabG2GnLuoPdQjAMGlD8CYHIYWI-YMdwspAw0ggaiWsFdqL6hoUK2QEBOAM_aem_15eRnKaJ5v3SX09PP8uEcw" }
+                ],
+                year: "2020",
+                location: "屯門河畔公園",
+                symbolicMeaning: "以銅雕重現「騎牛上學」等傳說，傳承代際記憶。",
+                viewingPoints: [
+                    {
+                        title: "藝術品中的牛代表著什麼？",
+                        description: "牛不只是屯門的象徵，更代表著居民生活的韌性與堅毅。"
+                    },
+                    {
+                        title: "旁邊的配件又代表什麼？",
+                        description: "細節中的配件如帽子、傘等，象徵不同時代屯門居民的日常生活。"
+                    },
+                    {
+                        title: "藝術品的顏色給你什麼感覺？",
+                        description: "有歷史感得來 鮮豔的顏色增添了幾分的趣味。"
+                    },
+                    {
+                        title: "裝置在訴說什麼故事？",
+                        description: "觀察《九座牛》表面浮雕，刻有屯門地標與歷史場景。"
+                    },
+                ],
+                quiz: [
+                    {
+                        question: "《屯門無限傳說》的主要創作靈感來自於：",
+                        options: [
+                            "藝術家的個人經歷",
+                            "屯門居民的記憶和故事",
+                            "國際藝術潮流",
+                            "自然景觀的抽象表現"
+                        ],
+                        answer: 1,
+                        explanation: "藝術家通過街頭攤位收集居民的記憶和幻想，作品反映社區的歷史和日常生活。"
+                    },
+                    {
+                        question: "《屯門無限傳說》希望觀眾如何與作品互動？",
+                        options: [
+                            "簡單欣賞雕塑的外觀",
+                            "通過想像力探索屯門的傳說",
+                            "參與雕塑的物理改造",
+                            "忽略社區背景直接評價藝術"
+                        ],
+                        answer: 1,
+                        explanation: "作品鼓勵觀眾通過想像力將屯門的片段故事轉化為傳承的傳說，促進社區認同。"
+                    },
+                    {
+                        question: "這件作品如何體現社區的多元性？",
+                        options: [
+                            "僅展示單一歷史事件",
+                            "結合歷史、日常生活和奇特故事",
+                            "專注於自然景觀的描繪",
+                            "忽略居民的參與"
+                        ],
+                        answer: 1,
+                        explanation: "作品涵蓋屯門的歷史、日常和奇特故事，反映社區的多元文化和記憶。"
+                    }
+                ],
+                miniGame: {
+                    title: "故事接龍",
+                    instruction: "觀看雕塑後，分享自己的屯門故事，與他人接龍，創建新的社區傳說"
+                },
+                publications: [
+                    { title: "屯門友段故 2020", url: "https://www.apo.hk/documents/download/here/2024/here_viva_river/infinite_legends_of_tuen_mun/TuenMunStories%20issue%202_8.8M_accessible.pdf" },
+                    { title: "屯門友段故", url: "https://www.apo.hk/documents/download/here/2024/here_viva_river/infinite_legends_of_tuen_mun/TuenMunStories%20issue%201_4.2M_accessible.pdf" }
+                ]
+            },
+            {
+                id: 1,
+                title: "與貓為畔",
+                position: { lat: 22.402289653919357, lng: 113.97597051974128 },
+                customPosition: { x: 30, y: 40 },
+                shortDesc: "紡織與貓咪：人貓共處", 
+                description: "藝術團隊「La Belle Époque」特地走訪屯門不同的角落，透過社區遊走的方式尋找創作靈感。在新墟、屯門碼頭和黃金海岸等社區間發現的貓踪呈現人貓共處的和諧景象。天生喜靜的貓兒，閒時在街上流連、疲倦時躲在街角歇息、偶爾與遊人互動。作品《與貓為畔》啓發自人貓共融的概念，在屯門河畔設置一系列由陶土手捏製成的貓雕像，並定期為貓雕像換上新衣，邀請觀眾從貓的視角體會和探索屯門的不同風貌。",
+                introduction: "藝術團隊: La Belle Époque（吳斯翹及張慧敏）\n創作物料: 亞克力纖維毛冷及炻器\n作品位置: 屯門河畔公園",
+                fullDescription: "藝術團隊「La Belle Époque」的作品《與貓為畔》啓發自人貓共融的概念，。藝術家在社區尋找靈感時，曾走訪嶺南大學、置樂街市、屯門碼頭等地，不約而同都見貓蹤。他們認為，這是個人貓共融的地方，能容得下小動物，善待他們，就是個好地方，於是邀請陶瓷藝術家Rose Lei製作出可愛的貓兒，放在河畔，在2021-2023年期間每半年會為牠們換上新裝，邀請觀眾從貓的視角體會和探索屯門的不同風貌。貓咪衣飾所用的物料，是100%的亞克力纖維（Acrylic）冷球，不含羊毛成分，具有快乾和不會發霉的特性，即使日前的連場暴雨亦無有怕。",
+                videoSrc: "https://www.youtube.com/embed/au_ppb0B6ac?rel=0",
+                gallery: [
+                    "https://i.imgur.com/fLuK9iH.jpeg",
+                    "https://i.imgur.com/LnJLVrm.jpeg",
+                    "https://i.imgur.com/Kh8dBt5.jpeg",
+                    "https://i.imgur.com/pyawtRm.jpeg",
+                    "https://i.imgur.com/ZLjTZ2a.jpeg",
+                    "https://i.imgur.com/PXXvgic.jpeg"
+                ],
+                artist: {
+                    name: "La Belle Époque（吳斯翹、張慧敏）",
+                    background: "La Belle Époqu 創辦人 Billie 與 Mary 曾從事廣告和平面設計行業，一直對布藝及刺綉等手作很感興趣，特別喜歡做娃娃。2012 年，美國著名 Yarn Bombing 藝術家 Magda Sayeg 獲邀來港為商場製作針織裝。二人是活動的助手，偶然發現了針織的魅力與可塑性，於是開始構思在香港創作街頭編織藝術。",
+                    style: "Yarn Bombing（毛線塗鴉）是一種創意街頭藝術，起源於2000年代，藝術家利用毛線、編織或鉤針作品裝飾公共空間，例如樹幹、路燈、欄杆或雕像。這種藝術形式以柔軟的材質和鮮艷的色彩，顛覆傳統塗鴉的硬派形象，旨在為城市環境注入溫暖、趣味與人情味。它通常是臨時性的，易於移除，不造成永久破壞。Yarn Bombing不僅展現手工藝術的魅力，也鼓勵社區參與，成為全球流行的公共藝術運動。"
+                },
+                social: [
+                    { platform: "Instagram", icon: "fab fa-instagram", url: "https://www.instagram.com/lbehk/" },
+                    { platform: "Facebook", icon: "fab fa-facebook-f", url: "https://www.facebook.com/La.Belle.epoque.hk/?locale=zh_HK" }
+                ],
+                year: "2019-2022",
+                location: "屯門河畔公園",
+                symbolicMeaning: "貓咪換裝象徵社區活力，探討人與自然共生。",
+                viewingPoints: [
+                    {
+                        title: "你認為貓能反映屯門社區的生活？",
+                        description: "觀察貓如何成為社區的一分子，反映屯門居民的生活方式。"
+                    },
+                    {
+                        title: "為什麼藝術家選擇每半年更換衣飾？這對作品的動態性有何影響？",
+                        description: "定期更換衣飾保持作品的新鮮感，反映季節變化和社區參與。"
+                    },
+                    {
+                        title: "你認為現在這種展示方式適合嗎？",
+                        description: "思考戶外展示對作品保存和公眾互動的影響。"
+                    },
+                    {
+                        title: "毛線塗鴉（Yarn Bombing）這種街頭藝術街頭在哪裏？",
+                        description: "探索這種柔性介入公共空間的藝術形式如何改變城市景觀。"
+                    },
+                ],
+                materialFeatures: "陶土雕像與手工針織衣物的結合，展現了工藝的多樣性。",
+                coreValue: "透過貓雕像換裝，推動公眾參與與生態關懷。",
+                quiz: [
+                    {
+                        question: "《與貓為畔》的主要主題是什麼？",
+                        options: [
+                            "屯門的歷史建築",
+                            "人與貓的和諧共存",
+                            "自然景觀的抽象表現",
+                            "現代科技的進步"
+                        ],
+                        answer: 1,
+                        explanation: "作品強調人與貓的互動，反映社區的生態和文化。"
+                    },
+                    {
+                        question: "這件作品的衣飾為什麼每半年更換一次？",
+                        options: [
+                            "因材質容易損壞",
+                            "遵循政府規定",
+                            "為了節省成本",
+                            "保持藝術品的動態感和社區參與"
+                        ],
+                        answer: 3,
+                        explanation: "更換衣飾增加互動性，吸引居民參與，保持作品的新鮮感。"
+                    },
+                    {
+                        question: "這件作品如何促進社區參與？",
+                        options: [
+                            "僅供觀賞，不涉及社區",
+                            "通過工作坊讓居民參與編織衣飾",
+                            "要求居民捐款維護",
+                            "僅限藝術家創作，不開放參與"
+                        ],
+                        answer: 1,
+                        explanation: "藝術家舉辦編織工作坊，居民可參與設計貓的衣飾，增強社區連結。"
+                    }
+                ],
+                miniGame: {
+                    title: "季節猜猜看",
+                    instruction: "觀眾根據衣飾的顏色和風格，猜測是春夏還是秋冬，並設計自己的貓衣飾圖案。",
+                    seasons: [
+                        { name: "春季", icon: "fa-seedling", color: "#a0e57c", pattern: "pattern-spring" },
+                        { name: "夏季", icon: "fa-sun", color: "#f9d71c", pattern: "pattern-summer" },
+                        { name: "秋季", icon: "fa-leaf", color: "#e67e22", pattern: "pattern-autumn" },
+                        { name: "冬季", icon: "fa-snowflake", color: "#3498db", pattern: "pattern-winter" }
+                    ],
+                    answer: 1 // 夏季
+                },
+                publications: [
+                    { title: "溯本尋屯 第一期", url: "https://issuu.com/tuenmunality/docs/________" }
+                ]
+            },
+            {
+                id: 2,
+                title: "河樹山家族",
+                position: { lat: 22.400113910331616, lng: 113.97541403603155 },
+                customPosition: { x: 60, y: 60 },
+                shortDesc: "共融且美麗的公共空間",
+                description: "在屯門成長、現為產品設計師的陳韻淇，過去住在屯門碼頭附近，她想起自己以前每天上課下課都沿着海邊走，因此她對大自然有一份親切感。其作品《河樹山家族》坐落於蔡意橋公園，融入了河、樹、山的元素，由幾何圖形組成高低不一、色調簡約的桌椅和台階，選擇不同的位置，大眾能夠多角度欣賞屯門河的景致。",
+                introduction: "作品:《河樹山家族》  \n藝術家: 陳韻淇 \n創作物料: 金屬、橡膠及人造石 \n作品位置: 蔡意橋花園",
+                fullDescription: "作品《河樹山家族》坐落於蔡意橋公園，由幾何圖形組成高低不一、色調簡約的桌椅和台階，選擇不同的位置，大眾能夠多角度欣賞屯門河的景致。融入了河、樹、山的元素，除了呈現陳韻淇對大自然的眷戀和情感，也展現了她在作品中投放的心思，她不僅有美觀上的考慮，甚至更着重桌椅在這個空間的功能性，以及是否滿足到不同人士的需要。「不規則的設計是想大家用的時候能夠有更大的靈活性以及一個更舒適的地方。」陳韻淇還特別提到香港的公共空間設計往往容易忽略殘疾人士的需要，甚少會考慮到加設無障礙設施，很少會在以人為本、美學以及共融上取得平衡。她舉例圓桌崩掉的位置，原意是希望給輪椅使用者同樣有使用公共設施的權利，同時做到健全與殘疾人士坐在一起使用，是她設計的初衷。\n\n而草皮上的小山丘裝置，看來簡單，但也得多番爭取。起初，她看規劃地圖擬定設計，見到花園有大片綠地，便構思山丘裝置，讓小朋友「可以爬可以玩」，「又可以野餐，好開心」。不料，她到現場視察時，承建商解釋綠地非草地，而是要種麥冬一類的種物。經過多番爭取，才取得這一塊草皮。",
+                videoSrc: "https://www.youtube.com/embed/LqntFxz-Nek?rel=0",
+                gallery: [
+                    "https://i.imgur.com/ekaw6B3.jpeg",
+                    "https://i.imgur.com/1sHRh7Y.jpeg",
+                    "https://i.imgur.com/3pdSTUG.jpeg",
+                    "https://i.imgur.com/dAYiXKX.jpeg"
+                ],
+                artist: {
+                    name: "陳韻淇（Kay Chan）",
+                    background: "屯門成長，香港理工大學設計學院畢業，創立「KaCaMa Design Lab」及「社區好日子」，深耕社區藝術設計。",
+                    style: "融合自然元素（河、樹、山）與幾何簡約造型，強調「功能性」與「共融性」。擅長將社會議題轉化為設計語言，例如無障礙設施（圓桌崩角）與生態保育。",
+                    otherWorks: "《荃灣二陂坊遊樂場》（2019年）《設計再生：鹹魚》(2018)",
+                    motivation: "童年見證屯門河從「臭河」轉變為生態走廊，希望透過藝術喚醒公眾對環境與弱勢群體的關注。"
+                },
+                social: [
+                    { platform: "Instagram", icon: "fab fa-instagram", url: "https://www.instagram.com/kaychanwanki/" },
+                    { platform: "Website", icon: "fas fa-globe", url: "https://kaychanwanki.com/About" }
+                ],
+                year: "2020",
+                location: "蔡意橋花園",
+                symbolicMeaning: "象徵屯門河從污染到生態復甦，崩角設計呼籲社會共融。",
+                viewingPoints: [
+                    {
+                        title: "試坐不同高度的桌椅，你發現視線方向如何引導你欣賞屯門河景致？",
+                        description: "各種高度提供多角度視野，體現設計如何引導觀者與環境互動。"
+                    },
+                    {
+                        title: "為何陳韻淇選擇用「河、樹、山」作為核心元素？這些元素如何反映屯門的轉變？",
+                        description: "自然元素象徵屯門環境從污染到復甦的過程，記錄社區歷史轉變。"
+                    },
+                    {
+                        title: "人造石桌面模仿河水流動的紋理，你認為這種設計如何呼應屯門河的生態復甦？",
+                        description: "材質選擇與紋理設計暗喻水流淨化過程，連結藝術與環保。"
+                    },
+                    {
+                        title: "藝術品在材質上有什麼特別？",
+                        description: "金屬框架：抗鏽耐用，線條硬朗呼應「山巒」意象。人造石桌面：抗污易清潔，表面紋理模仿河水流動。橡膠地面：防滑緩衝，適合兒童跑動。"
+                    },
+                    {
+                        title: "藝術品在設計上有什麼細節？",
+                        description: "圓桌崩角：輪椅使用者可無障礙靠近。高低台階：模擬山勢，提供多角度觀景視野。"
+                    }
+                ],
+                materialFeatures: "金屬框架與人造石桌面結合，兼具美觀與實用功能。",
+                coreValue: "自然與人文共融，兼顧美學與無障礙需求。",
+                quiz: [
+                    {
+                        question: "陳韻淇在《河樹山家族》中設計「圓桌崩角」的主要目的是什麼？",
+                        options: [
+                            "增加藝術品的視覺趣味性",
+                            "模仿自然山石的形狀",
+                            "方便輪椅使用者靠近使用",
+                            "減少製作材料的成本"
+                        ],
+                        answer: 2,
+                        explanation: "崩角設計是為了讓輪椅使用者能無障礙使用，體現共融理念。"
+                    },
+                    {
+                        question: "《河樹山家族》中使用的「橡膠地面」有何功能？",
+                        options: [
+                            "防滑並緩衝兒童跑動時的衝擊",
+                            "模仿河流的波紋質感",
+                            "降低製作成本",
+                            "增加座椅的舒適度"
+                        ],
+                        answer: 0,
+                        explanation: "橡膠材質兼具防滑與緩衝功能，適合戶外公共空間。"
+                    },
+                    {
+                        question: "陳韻淇設計高低台階的靈感來自哪個自然元素？",
+                        options: [
+                            "河流的流動性",
+                            "山巒的層次感",
+                            "樹木的生長方向",
+                            "候鳥的飛行路徑"
+                        ],
+                        answer: 1,
+                        explanation: "高低台階模擬山勢起伏，提供多角度觀景視野。"
+                    },
+                    {
+                        question: "陳韻淇在爭取草地設計時遇到的主要挑戰是什麼？",
+                        options: [
+                            "居民反對公園建設",
+                            "政府原計劃種植麥冬而非草地",
+                            "經費不足",
+                            "技術難以實現"
+                        ],
+                        answer: 1,
+                        explanation: "她成功說服政府將麥冬改為草地，為兒童爭取柔軟的活動空間。"
+                    }
+                ],
+                miniGame: {
+                    title: "尋找自然符號",
+                    instruction: "在公園內找出隱藏的「河、樹、山」幾何圖案，拍照分享你的發現。"
+                },
+                publications: [
+                    { title: "藝術造園：屯門河變身休憩地", url: "https://collection.news/thestandnews/articles/133604" }
+                ]
+            },
+            {
+                id: 3,
+                title: "團門",
+                position: { lat: 22.39921869110351, lng: 113.97488295864879 },
+                customPosition: { x: 45, y: 75 },
+                shortDesc: "關於擁抱的裝置",
+                description: "團門是一件現《團門》為兩件公共藝術裝置，以一座顏色鮮艷的心形雕塑以及藝術座椅，給社區的居民帶來與別不同的擁抱。平時除了設計工作以外，羅曉騰透露自己近年也在展開以擁抱為基礎的創作，而這次的邀請正正給了他一個好機會，將原來二維的創作立體化，同時延續他對擁抱的概念。",
+                introduction: "作品:《團門》  \n藝術家: 羅曉騰 \n創作物料: 玻璃纖維 \n作品位置: 青賢花園",
+                fullDescription: "「擁抱是一個動作，令你去了解、包容和接受。」羅曉騰在創作過程中了解到，屯門有「屯兵之門」的意思，於是他在心形雕塑旁邊特意加上兩道門，讓人經過的時候有進家門的感覺。而座椅上亦有彩色、左右兩邊互擁的圖案，則希望回應心形雕塑的門，讓人感覺像回到家一樣，每個人都可以一同坐在座椅上。",
+                videoSrc: "https://www.youtube.com/embed/2PCjij0u7Dc?rel=0",
+                gallery: [
+                    "https://i.imgur.com/7jsAMei.jpeg",
+                    "https://i.imgur.com/kVn15AK.jpeg",
+                    "https://i.imgur.com/RdSljXJ.jpeg",
+                    "https://i.imgur.com/zVrAdMA.jpeg"
+                ],
+                artist: {
+                    name: "羅曉騰（Ken Lo）",
+                    background: "羅曉騰是 BLOW 設計公司的創辦人及設計總監，香港維港標記的設計師。他憑藉優秀的設計作品，在多個具代表性的本地及國際設計比賽並屢獲佳績。羅氏於 2011 年被《透視》雜誌選為「亞洲四十驕子」，並於 2012 年被《Time Out》雜誌選為「您需認識的二十五位香港設計師」之一。",
+                    style: "鮮豔色彩與Pop Art風格，打破傳統雕塑形式。以「擁抱」為核心概念，強調社區連結與歸屬感。"
+                },
+                social: [
+                    { platform: "Company Website", icon: "fas fa-globe", url: "https://www.blow.hk/" },
+                    { platform: "Instagram", icon: "fab fa-instagram", url: "https://www.instagram.com/morehugsbykenlo/" },
+                    { platform: "Personal Website", icon: "fas fa-user", url: "http://www.morehugsbykenlo.com/?fbclid=PAZXh0bgNhZW0CMTEAAaYV3J-nECXKDQrT_hGHNQ1BPlRR7QakCidw443f4P0M8eFLatDEOjW-XMA_aem_cM8X45UBYVT_NHMyGBz_BQ" }
+                ],
+                year: "2022",
+                location: "青賢花園",
+                symbolicMeaning: "心形雕塑與門廊設計，隱喻屯門作為「家」的包容性。",
+                viewingPoints: [
+                    {
+                        title: "心形雕塑的鮮豔色彩如何影響你對空間的感受？如果是暗色調，效果會有什麼不同？",
+                        description: "鮮艷色彩提升空間活力，促進情緒積極響應。"
+                    },
+                    {
+                        title: "試坐在座椅上，左右互擁的圖案是否讓你聯想到與他人共享空間的意義？",
+                        description: "座椅設計鼓勵社交互動，實踐「擁抱」的核心概念。"
+                    },
+                    {
+                        title: "玻璃纖維材質的輕量化特性如何影響雕塑的呈現方式？",
+                        description: "輕量材質呈現流暢曲線，營造溫暖邀請的氛圍。"
+                    },
+                    {
+                        title: "藝術品中的門框象徵什麼？",
+                        description: "兩側門框引導視覺焦點，隱喻「回家」的歸屬感。"
+                    }
+                ],
+                materialFeatures: "玻璃纖維材質打造鮮豔色彩，呈現輕盈流暢的線條感。",
+                coreValue: "以擁抱與鮮豔色彩打破社區隔閡。",
+                specialFeature: "擁抱打卡：與心形雕塑合影並上傳社交媒體，標籤「#屯門擁抱計劃」可獲藝術家簽名貼紙。",
+                quiz: [
+                    {
+                        question: "羅曉騰設計《團門》的核心概念是什麼？",
+                        options: [
+                            "環保與節能",
+                            "擁抱與社區連結",
+                            "歷史戰爭紀念",
+                            "商業品牌宣傳"
+                        ],
+                        answer: 1,
+                        explanation: "作品以「擁抱」為核心，象徵社區包容與人際連結。"
+                    },
+                    {
+                        question: "《團門》的心形雕塑使用的主要材料是什麼？",
+                        options: [
+                            "青銅",
+                            "玻璃纖維",
+                            "塑膠",
+                            "陶瓷"
+                        ],
+                        answer: 1,
+                        explanation: "玻璃纖維輕量且可塑性高，適合製作鮮豔複雜的雕塑。"
+                    },
+                    {
+                        question: "羅曉騰在雕塑旁設置兩道門的靈感來自哪裡？",
+                        options: [
+                            "屯門的「屯兵之門」歷史",
+                            "現代建築的簡約風格",
+                            "自然山脈的形狀",
+                            "兒童遊樂場的設施"
+                        ],
+                        answer: 0,
+                        explanation: "門廊設計呼應屯門歷史名稱「屯兵之門」，隱喻「回家」的歸屬感。"
+                    },
+                    {
+                        question: "《團門》座椅上的圖案設計有何象徵意義？",
+                        options: [
+                            "模仿候鳥飛行軌跡",
+                            "左右互擁的彩色圖案",
+                            "屯門河的地圖輪廓",
+                            "傳統花卉紋樣"
+                        ],
+                        answer: 1,
+                        explanation: "座椅圖案呼應擁抱主題，鼓勵人們共同使用，打破隔閡。"
+                    },
+                    {
+                        question: "羅曉騰希望通過《團門》達到什麼社會效果？",
+                        options: [
+                            "提升房產價值",
+                            "聚集社區焦點，拉近人際距離",
+                            "吸引遊客拍照打卡",
+                            "展示個人藝術成就"
+                        ],
+                        answer: 1,
+                        explanation: "作品旨在通過地標性設計凝聚社區，縮小人際距離。"
+                    }
+                ],
+                miniGame: {
+                    title: "擁抱打卡",
+                    instruction: "與心形雕塑合影並上傳社交媒體，標籤「#屯門擁抱計劃」，拍出最有創意的擁抱姿勢。"
+                },
+                publications: [
+                    { title: "藝術家報道", url: "https://www.elle.com.hk/life/ken-lo-with-tian-yuan-xiang" }
+                ]
+            }
+        ];
+
+        // 初始化應用
+        document.addEventListener('DOMContentLoaded', function() {
+            // 生成藝術品選擇器
+            createArtSelector();
+            
+            // 載入Google地圖API後會自動調用initMap
+            if (typeof google !== 'undefined' && google.maps) {
+                initMap();
+            } else {
+                // 手動載入Google地圖API
+                loadGoogleMapsAPI();
+            }
+            
+            // 設置事件監聽器
+            document.getElementById('closeDetail').addEventListener('click', closeArtworkDetail);
+            document.getElementById('startNavigation').addEventListener('click', startNavigation);
+            document.getElementById('navigateBtn').addEventListener('click', toggleNavigation);
+            document.getElementById('mapToggle').addEventListener('click', toggleMapMode);
+            document.getElementById('centerMap').addEventListener('click', centerMapToUser);
+            document.getElementById('zoomIn').addEventListener('click', () => zoomMap(1));
+            document.getElementById('zoomOut').addEventListener('click', () => zoomMap(-1));
+            document.getElementById('artistInfoBtn').addEventListener('click', () => switchTab('artist'));
+            document.getElementById('artDevelopmentBtn').addEventListener('click', toggleArtDevelopmentPanel);
+            document.getElementById('closeArtDevelopment').addEventListener('click', closeArtDevelopmentPanel);
+            document.getElementById('readMoreBtn').addEventListener('click', toggleDescriptionLength);
+
+            // 設置標籤切換事件
+            setupTabs();
+            
+            // 設置圖片輪播事件
+            setupGalleryControls();
+            
+            // 設置深色模式
+            setupDarkMode();
+        });
+        
+        // 設置標籤切換
+        function setupTabs() {
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabName = tab.getAttribute('data-tab');
+                    switchTab(tabName);
+                });
+            });
+        }
+        
+        // 切換標籤
+        function switchTab(tabName) {
+            // 取消所有標籤和內容的活躍狀態
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // 啟用選中的標籤和內容
+            document.querySelector(`.tab[data-tab="${tabName}"]`).classList.add('active');
+            document.querySelector(`.tab-content[data-content="${tabName}"]`).classList.add('active');
+
+            // 如果切換到藝術家信息標籤，確保藝術家信息已加載
+            if (tabName === 'artist' && selectedArtwork) {
+                renderArtistInfo(selectedArtwork);
+                renderArtistSocialLinks(selectedArtwork);
+            }
+            
+            // 如果切換到問答標籤，載入問答內容
+            if (tabName === 'quiz' && selectedArtwork) {
+                renderQuiz(selectedArtwork);
+                renderMiniGame(selectedArtwork);
+            }
+        }
+        
+        // 設置深色模式
+        function setupDarkMode() {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.classList.add('dark');
+            }
+            
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+                if (event.matches) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            });
+        }
+        
+        // 設置圖片輪播控制
+        function setupGalleryControls() {
+            const prevBtn = document.querySelector('.gallery-prev');
+            const nextBtn = document.querySelector('.gallery-next');
+            
+            prevBtn.addEventListener('click', () => {
+                if (selectedArtwork && selectedArtwork.gallery) {
+                    currentGalleryIndex = (currentGalleryIndex - 1 + selectedArtwork.gallery.length) % selectedArtwork.gallery.length;
+                    updateGallery();
+                }
+            });
+            
+            nextBtn.addEventListener('click', () => {
+                if (selectedArtwork && selectedArtwork.gallery) {
+                    currentGalleryIndex = (currentGalleryIndex + 1) % selectedArtwork.gallery.length;
+                    updateGallery();
+                }
+            });
+        }
+        
+        // 更新圖片輪播
+        function updateGallery() {
+            if (!selectedArtwork || !selectedArtwork.gallery) return;
+            
+            const galleryContainer = document.getElementById('artworkGallery');
+            galleryContainer.style.transform = `translateX(-${currentGalleryIndex * 100}%)`;
+            
+            // 更新導航點
+            document.querySelectorAll('.gallery-dot').forEach((dot, idx) => {
+                if (idx === currentGalleryIndex) {
+                    dot.classList.add('active');
+                } else {
+                    dot.classList.remove('active');
+                }
+            });
+        }
+        
+        // 切換作品詳情長短
+        function toggleDescriptionLength() {
+            const shortDesc = document.getElementById('artDescriptionShort');
+            const fullDesc = document.getElementById('artDescriptionFull');
+            const btn = document.getElementById('readMoreBtn');
+            
+            if (fullDesc.style.display === 'none') {
+                shortDesc.style.display = 'none';
+                fullDesc.style.display = 'block';
+                btn.textContent = '收起';
+            } else {
+                shortDesc.style.display = 'block';
+                fullDesc.style.display = 'none';
+                btn.textContent = '閱讀更多';
+            }
+        }
+        
+        // 載入Google地圖API
+        function loadGoogleMapsAPI() {
+            const script = document.createElement('script');
+            script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyCD032WSy6GC27tEiAN446Xn_DR4nD5jSw&callback=initMap';
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+        }
+
+        // 初始化地圖
+        function initMap() {
+            // 隱藏載入動畫
+            document.getElementById('loadingScreen').style.display = 'none';
+            
+            // 手繪地圖邊界（根據Tuen Mun區域）
+            const overlayBounds = new google.maps.LatLngBounds(
+                new google.maps.LatLng(22.39081, 113.96311), // 西南角
+                new google.maps.LatLng(22.40592, 113.98452)  // 東北角
+            );
+            
+            // 創建Google地圖
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: 22.401, lng: 113.975 }, // 地圖中心點
+                zoom: 16,
+                mapTypeId: google.maps.MapTypeId.ROADMAP,
+                zoomControl: false,
+                mapTypeControl: false,
+                streetViewControl: false,
+                fullscreenControl: false
+            });
+            
+            // 添加手繪地圖圖層
+            handDrawnMap = new google.maps.GroundOverlay(
+                "https://i.imgur.com/0aL2KCM.png", // 手繪地圖URL
+                overlayBounds,
+                { opacity: 1 }
+            );
+            handDrawnMap.setMap(map);
+            
+            // 創建方向服務
+            directionsService = new google.maps.DirectionsService();
+            directionsRenderer = new google.maps.DirectionsRenderer({
+                map: map,
+                suppressMarkers: true,
+                polylineOptions: {
+                    strokeColor: '#5D5CDE',
+                    strokeWeight: 5,
+                    strokeOpacity: 0.7
+                }
+            });
+            
+            // 初始化地圖模式
+            updateMapMode();
+            
+            // 添加藝術品標記
+            addArtworkMarkers();
+            
+            // 開始跟蹤用戶位置
+            trackUserLocation();
+            
+            // 自動調整地圖視圖適應手繪地圖範圍
+            map.fitBounds(overlayBounds);
+        }
+        
+        // 添加藝術品標記
+        function addArtworkMarkers() {
+            artworks.forEach(art => {
+                const marker = new google.maps.Marker({
+                    position: art.position,
+                    map: map,
+                    title: art.title,
+                    icon: {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        fillColor: '#FF6B6B',
+                        fillOpacity: 1,
+                        strokeWeight: 2,
+                        strokeColor: '#FFFFFF',
+                        scale: 10
+                    },
+                    optimized: false,
+                    zIndex: 10
+                });
+                
+                // 創建信息窗口
+                const infoWindow = new google.maps.InfoWindow({
+                    content: `<div class="p-2">
+                                <h3 class="font-bold">${art.title}</h3>
+                                <p>${art.shortDesc}</p>
+                                <button id="infoBtn-${art.id}" class="bg-blue-500 text-white px-2 py-1 rounded mt-2">查看詳情</button>
+                              </div>`
+                });
+                
+                // 點擊標記時打開信息窗口
+                marker.addListener('click', () => {
+                    infoWindow.open(map, marker);
+                    
+                    // 為詳情按鈕添加點擊事件
+                    google.maps.event.addListenerOnce(infoWindow, 'domready', () => {
+                        document.getElementById(`infoBtn-${art.id}`).addEventListener('click', () => {
+                            openArtworkDetail(art);
+                            infoWindow.close();
+                        });
+                    });
+                });
+                
+                // 保存標記引用
+                art.marker = marker;
+            });
+        }
+        
+        // 跟蹤用戶位置
+        function trackUserLocation() {
+            if (navigator.geolocation) {
+                // 獲取初始位置
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        const userPos = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+                        
+                        // 創建用戶位置標記
+                        userMarker = new google.maps.Marker({
+                            position: userPos,
+                            map: map,
+                            title: "您的位置",
+                            icon: {
+                                path: google.maps.SymbolPath.CIRCLE,
+                                fillColor: '#4285F4',
+                                fillOpacity: 1,
+                                strokeWeight: 2,
+                                strokeColor: '#FFFFFF',
+                                scale: 8
+                            },
+                            zIndex: 20
+                        });
+                        
+                        // 添加準確度圓圈
+                        const accuracyCircle = new google.maps.Circle({
+                            map: map,
+                            center: userPos,
+                            radius: position.coords.accuracy,
+                            fillColor: '#4285F4',
+                            fillOpacity: 0.2,
+                            strokeColor: '#4285F4',
+                            strokeOpacity: 0.5,
+                            strokeWeight: 1
+                        });
+                        
+                        userMarker.accuracyCircle = accuracyCircle;
+                        
+                        // 將地圖中心設為用戶位置
+                        map.setCenter(userPos);
+                        
+                        // 檢查是否接近藝術品
+                        checkProximityToArtworks(userPos);
+                    },
+                    error => {
+                        console.error("獲取用戶位置時出錯:", error);
+                        alert("無法獲取您的位置，部分功能可能無法正常使用。");
+                    }
+                );
+                
+                // 持續跟踪位置變化
+                userWatchId = navigator.geolocation.watchPosition(
+                    position => {
+                        const userPos = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+                        
+                        // 更新用戶標記位置
+                        if (userMarker) {
+                            userMarker.setPosition(userPos);
+                            
+                            // 更新準確度圓圈
+                            if (userMarker.accuracyCircle) {
+                                userMarker.accuracyCircle.setCenter(userPos);
+                                userMarker.accuracyCircle.setRadius(position.coords.accuracy);
+                            }
+                            
+                            // 如果正在導航，更新路線
+                            if (isNavigating && selectedArtwork) {
+                                updateNavigation(userPos, selectedArtwork.position);
+                            }
+                            
+                            // 檢查是否接近藝術品
+                            checkProximityToArtworks(userPos);
+                        }
+                    },
+                    error => {
+                        console.error("監控位置時出錯:", error);
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        maximumAge: 0,
+                        timeout: 5000
+                    }
+                );
+            } else {
+                console.error("地理定位不可用。");
+                alert("您的瀏覽器不支持地理定位功能，部分功能可能無法正常使用。");
+            }
+        }
+        
+        // 檢查是否接近藝術品
+        function checkProximityToArtworks(userPos) {
+            artworks.forEach(art => {
+                const distance = calculateDistance(
+                    userPos.lat, userPos.lng,
+                    art.position.lat, art.position.lng
+                );
+                
+                // 如果距離小於10米且未顯示詳情，則自動顯示藝術品詳情
+                if (distance < 10 && art !== selectedArtwork) {
+                    openArtworkDetail(art);
+                }
+            });
+        }
+        
+        // 計算兩點之間的距離（米）
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // 地球半徑（米）
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+            
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                    Math.cos(φ1) * Math.cos(φ2) *
+                    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            
+            return R * c;
+        }
+        
+        // 生成藝術品選擇器 - 更新為圓形圖片版本
+        function createArtSelector() {
+            const selector = document.getElementById('artSelector');
+            
+            artworks.forEach(art => {
+                const option = document.createElement('div');
+                option.className = 'art-option';
+                option.dataset.id = art.id;
+                
+                // 圓形圖片
+                const img = document.createElement('img');
+                img.className = 'art-option-img';
+                img.src = art.gallery[0]; // 使用第一張圖片作為縮略圖
+                img.alt = art.title;
+                
+                // 藝術品名稱
+                const text = document.createElement('div');
+                text.className = 'art-option-text';
+                text.textContent = art.title;
+                
+                option.appendChild(img);
+                option.appendChild(text);
+                
+                option.addEventListener('click', () => {
+                    // 取消選中所有選項
+                    document.querySelectorAll('.art-option').forEach(opt => {
+                        opt.classList.remove('active');
+                    });
+                    
+                    // 選中當前選項
+                    option.classList.add('active');
+                    
+                    // 更新選中的藝術品
+                    selectedArtwork = art;
+                    
+                    // 將地圖中心設為藝術品位置
+                    map.setCenter(art.position);
+                    map.setZoom(18);
+                });
+                
+                selector.appendChild(option);
+            });
+        }
+        
+        // 開始導航
+        function startNavigation() {
+            if (!selectedArtwork) {
+                alert("請先選擇一個藝術品！");
+                return;
+            }
+            
+            if (!userMarker) {
+                alert("無法獲取您的位置，請確認已授權位置訪問權限。");
+                return;
+            }
+            
+            // 開始導航
+            isNavigating = true;
+            
+            // 更新按鈕文字
+            document.getElementById('startNavigation').innerHTML = 
+                '<i class="fas fa-stop-circle"></i> 停止導航';
+            document.getElementById('startNavigation').addEventListener('click', stopNavigation, { once: true });
+            
+            // 更新導航路線
+            updateNavigation(userMarker.getPosition(), selectedArtwork.position);
+        }
+        
+        // 停止導航
+        function stopNavigation() {
+            isNavigating = false;
+            
+            // 更新按鈕文字
+            document.getElementById('startNavigation').innerHTML = 
+                '<i class="fas fa-directions"></i> 開始導航';
+            document.getElementById('startNavigation').addEventListener('click', startNavigation, { once: true });
+            
+            // 清除路線
+            directionsRenderer.setDirections({ routes: [] });
+        }
+        
+        // 更新導航路線
+        function updateNavigation(origin, destination) {
+            directionsService.route({
+                origin: origin,
+                destination: destination,
+                travelMode: google.maps.TravelMode.WALKING
+            }, (response, status) => {
+                if (status === "OK") {
+                    directionsRenderer.setDirections(response);
+                    
+                    // 獲取路線信息
+                    const route = response.routes[0];
+                    if (route && route.legs && route.legs[0]) {
+                        const leg = route.legs[0];
+                        
+                        // 檢查是否已到達
+                        if (leg.distance.value < 10) { // 小於10米視為到達
+                            reachDestination();
+                        }
+                    }
+                } else {
+                    console.error("路線規劃失敗:", status);
+                }
+            });
+        }
+        
+        // 切換地圖模式
+        function toggleMapMode() {
+            mapMode = mapMode === 'custom' ? 'google' : 'custom';
+            updateMapMode();
+        }
+        
+        // 更新地圖模式
+        function updateMapMode() {
+            const toggleBtn = document.getElementById('mapToggle');
+            
+            if (mapMode === 'custom') {
+                // 切換到手繪地圖模式
+                map.setMapTypeId('roadmap');
+                handDrawnMap.setMap(map);
+                
+                // 更新按鈕文字
+                toggleBtn.innerHTML = '<i class="fas fa-map-marked-alt mr-2"></i><span>切換到衛星地圖</span>';
+            } else {
+                // 切換到Google地圖模式
+                map.setMapTypeId('satellite');
+                handDrawnMap.setMap(null);
+                
+                // 更新按鈕文字
+                toggleBtn.innerHTML = '<i class="fas fa-map mr-2"></i><span>切換到手繪地圖</span>';
+            }
+            
+            // 在兩種地圖模式下都顯示導航路線（如果正在導航）
+            if (isNavigating && directionsRenderer) {
+                directionsRenderer.setMap(map);
+            } else if (directionsRenderer) {
+                directionsRenderer.setMap(null);
+            }
+        }
+        
+        // 打開藝術品詳情面板
+        function openArtworkDetail(artwork) {
+            selectedArtwork = artwork;
+            currentGalleryIndex = 0;
+            
+            // 更新詳情面板內容
+            document.getElementById('artTitle').textContent = artwork.title;
+            document.getElementById('artIntro').textContent = artwork.introduction;
+            document.getElementById('artYearLocation').textContent = `${artwork.year} | ${artwork.location}`;
+            document.getElementById('artDescriptionShort').textContent = artwork.description;
+            document.getElementById('artDescriptionFull').textContent = artwork.fullDescription || artwork.description;
+            
+            // 重設影片和互動內容
+            const artVideo = document.getElementById('artVideo');
+            const artMedia = document.getElementById('artMedia');
+            const artInteraction = document.getElementById('artInteraction');
+            const interactionContent = document.getElementById('interactionContent');
+            const viewingPointsContainer = document.getElementById('artViewingPoints');
+            
+            artVideo.src = "";
+            artMedia.classList.add('hidden');
+            artInteraction.classList.add('hidden');
+            interactionContent.innerHTML = '';
+            viewingPointsContainer.innerHTML = '';
+            
+            // 設置導航按鈕文字
+            document.getElementById('navigateBtn').innerHTML = 
+                isNavigating ? '<i class="fas fa-stop-circle"></i>停止導航' : 
+                              '<i class="fas fa-directions"></i>開始導航';
+            
+            // 顯示影片（如果有）
+            if (artwork.videoSrc) {
+                artVideo.src = artwork.videoSrc;
+                artMedia.classList.remove('hidden');
+            }
+            
+            // 創建圖片輪播
+            createGallery(artwork);
+            
+            // 顯示觀看要點（如果有）- 更新為可展開版本
+            if (artwork.viewingPoints && artwork.viewingPoints.length > 0) {
+                artwork.viewingPoints.forEach(point => {
+                    const pointElement = document.createElement('div');
+                    pointElement.className = 'viewing-point mb-3';
+                    
+                    const titleElement = document.createElement('div');
+                    titleElement.className = 'viewing-point-title';
+                    titleElement.innerHTML = `${point.title} <i class="fas fa-chevron-down"></i>`;
+                    titleElement.addEventListener('click', function() {
+                        this.classList.toggle('expanded');
+                        const desc = this.nextElementSibling;
+                        desc.classList.toggle('visible');
+                    });
+                    
+                    const descElement = document.createElement('div');
+                    descElement.className = 'viewing-point-description';
+                    descElement.textContent = point.description;
+                    
+                    pointElement.appendChild(titleElement);
+                    pointElement.appendChild(descElement);
+                    viewingPointsContainer.appendChild(pointElement);
+                });
+            }
+            
+            // 渲染藝術家資訊
+            renderArtistInfo(artwork);
+            
+            // 顯示互動內容（如果有）
+            if (artwork.interaction) {
+                artInteraction.classList.remove('hidden');
+                createInteractionContent(artwork.interaction);
+            }
+            
+            // 顯示詳情面板，默認顯示作品資訊標籤
+            switchTab('artwork');
+            document.getElementById('art-detail-panel').classList.add('active');
+            
+            // 加載問答內容
+            renderQuiz(artwork);
+            renderMiniGame(artwork);
+            
+            // 清空留言板並加載新的留言
+            document.getElementById('commentList').innerHTML = '';
+            document.getElementById('commentInput').value = '';
+            
+            // 設置留言提交按鈕事件
+            document.getElementById('submitComment').onclick = function() {
+                const comment = document.getElementById('commentInput').value.trim();
+                if (comment) {
+                    addComment(comment);
+                    document.getElementById('commentInput').value = '';
+                }
+            };
+            
+            // 更新地圖
+            map.setCenter(artwork.position);
+            
+            // 高亮選中的藝術品選項
+            document.querySelectorAll('.art-option').forEach(opt => {
+                if (parseInt(opt.dataset.id) === artwork.id) {
+                    opt.classList.add('active');
+                } else {
+                    opt.classList.remove('active');
+                }
+            });
+        }
+        
+        // 創建圖片輪播
+        function createGallery(artwork) {
+            if (!artwork.gallery || artwork.gallery.length === 0) return;
+            
+            const galleryContainer = document.getElementById('artworkGallery');
+            const galleryNav = document.getElementById('galleryNav');
+            
+            galleryContainer.innerHTML = '';
+            galleryNav.innerHTML = '';
+            
+            // 添加圖片
+            artwork.gallery.forEach((imgUrl, idx) => {
+                const galleryItem = document.createElement('div');
+                galleryItem.className = 'gallery-item';
+                galleryItem.innerHTML = `<img src="${imgUrl}" alt="${artwork.title} - 圖片 ${idx + 1}" loading="eager">`;
+                galleryContainer.appendChild(galleryItem);
+                
+                // 添加導航點
+                const dot = document.createElement('div');
+                dot.className = 'gallery-dot';
+                if (idx === 0) dot.classList.add('active');
+                dot.addEventListener('click', () => {
+                    currentGalleryIndex = idx;
+                    updateGallery();
+                });
+                galleryNav.appendChild(dot);
+            });
+            
+            // 初始化輪播位置
+            galleryContainer.style.transform = 'translateX(0)';
+        }
+        
+        // 渲染藝術家資訊
+        function renderArtistInfo(artwork) {
+            const artistInfoContainer = document.getElementById('artistInfo');
+            artistInfoContainer.innerHTML = '';
+            
+            if (!artwork.artist) return;
+            
+            const artist = artwork.artist;
+            
+            // 藝術家資訊標題
+            const titleElement = document.createElement('h3');
+            titleElement.className = 'text-xl font-bold mb-3';
+            titleElement.textContent = artist.name;
+            artistInfoContainer.appendChild(titleElement);
+            
+            // 藝術家背景
+            if (artist.background) {
+                const backgroundSection = document.createElement('div');
+                backgroundSection.className = 'artist-section';
+                
+                const backgroundTitle = document.createElement('div');
+                backgroundTitle.className = 'section-title';
+                backgroundTitle.textContent = '背景';
+                
+                const backgroundContent = document.createElement('p');
+                backgroundContent.textContent = artist.background;
+                
+                backgroundSection.appendChild(backgroundTitle);
+                backgroundSection.appendChild(backgroundContent);
+                artistInfoContainer.appendChild(backgroundSection);
+            }
+            
+            // 藝術風格
+            if (artist.style) {
+                const styleSection = document.createElement('div');
+                styleSection.className = 'artist-section';
+                
+                const styleTitle = document.createElement('div');
+                styleTitle.className = 'section-title';
+                styleTitle.textContent = '風格';
+                
+                const styleContent = document.createElement('p');
+                styleContent.textContent = artist.style;
+                
+                styleSection.appendChild(styleTitle);
+                styleSection.appendChild(styleContent);
+                artistInfoContainer.appendChild(styleSection);
+            }
+            
+            // 其他代表作
+            if (artist.otherWorks) {
+                const worksSection = document.createElement('div');
+                worksSection.className = 'artist-section';
+                
+                const worksTitle = document.createElement('div');
+                worksTitle.className = 'section-title';
+                worksTitle.textContent = '其他代表作';
+                
+                const worksContent = document.createElement('p');
+                worksContent.textContent = artist.otherWorks;
+                
+                worksSection.appendChild(worksTitle);
+                worksSection.appendChild(worksContent);
+                artistInfoContainer.appendChild(worksSection);
+            }
+            
+            // 創作動機（如果有）
+            if (artist.motivation) {
+                const motivationSection = document.createElement('div');
+                motivationSection.className = 'artist-section';
+                
+                const motivationTitle = document.createElement('div');
+                motivationTitle.className = 'section-title';
+                motivationTitle.textContent = '創作動機';
+                
+                const motivationContent = document.createElement('p');
+                motivationContent.textContent = artist.motivation;
+                
+                motivationSection.appendChild(motivationTitle);
+                motivationSection.appendChild(motivationContent);
+                artistInfoContainer.appendChild(motivationSection);
+            }
+            
+            // 作品核心價值
+            if (artwork.coreValue) {
+                const valueSection = document.createElement('div');
+                valueSection.className = 'artist-section';
+                
+                const valueTitle = document.createElement('div');
+                valueTitle.className = 'section-title';
+                valueTitle.textContent = '作品核心價值';
+                
+                const valueContent = document.createElement('p');
+                valueContent.textContent = artwork.coreValue;
+                
+                valueSection.appendChild(valueTitle);
+                valueSection.appendChild(valueContent);
+                artistInfoContainer.appendChild(valueSection);
+            }
+            
+            // 材料特性
+            if (artwork.materialFeatures) {
+                const materialSection = document.createElement('div');
+                materialSection.className = 'artist-section';
+                
+                const materialTitle = document.createElement('div');
+                materialTitle.className = 'section-title';
+                materialTitle.textContent = '材料特性';
+                
+                const materialContent = document.createElement('p');
+                materialContent.textContent = artwork.materialFeatures;
+                
+                materialSection.appendChild(materialTitle);
+                materialSection.appendChild(materialContent);
+                artistInfoContainer.appendChild(materialSection);
+            }
+            
+            // 特殊互動功能
+            if (artwork.specialFeature) {
+                const featureSection = document.createElement('div');
+                featureSection.className = 'artist-section';
+                
+                const featureTitle = document.createElement('div');
+                featureTitle.className = 'section-title';
+                featureTitle.textContent = '特殊互動';
+                
+                const featureContent = document.createElement('p');
+                featureContent.textContent = artwork.specialFeature;
+                
+                featureSection.appendChild(featureTitle);
+                featureSection.appendChild(featureContent);
+                artistInfoContainer.appendChild(featureSection);
+            }
+            
+            // 出版物/延伸閱讀
+            if (artwork.publications && artwork.publications.length > 0) {
+                const pubSection = document.createElement('div');
+                pubSection.className = 'artist-section';
+                
+                const pubTitle = document.createElement('div');
+                pubTitle.className = 'section-title';
+                pubTitle.textContent = '延伸閱讀';
+                
+                pubSection.appendChild(pubTitle);
+                
+                artwork.publications.forEach(pub => {
+                    const pubLink = document.createElement('a');
+                    pubLink.href = pub.url;
+                    pubLink.target = "_blank";
+                    pubLink.className = "block text-blue-500 hover:underline mb-2";
+                    pubLink.textContent = pub.title;
+                    
+                    pubSection.appendChild(pubLink);
+                });
+                
+                artistInfoContainer.appendChild(pubSection);
+            }
+        }
+        
+        // 渲染藝術家社交媒體連結
+        function renderArtistSocialLinks(artwork) {
+            const socialContainer = document.getElementById('artistSocialLinks');
+            socialContainer.innerHTML = '';
+            
+            if (!artwork.social || artwork.social.length === 0) return;
+            
+            artwork.social.forEach(social => {
+                const link = document.createElement('a');
+                link.href = social.url;
+                link.target = "_blank";
+                link.className = "social-link";
+                link.title = social.platform;
+                
+                const icon = document.createElement('i');
+                icon.className = social.icon;
+                
+                link.appendChild(icon);
+                socialContainer.appendChild(link);
+            });
+        }
+        
+        // 渲染問答遊戲
+        function renderQuiz(artwork) {
+            const quizContainer = document.getElementById('quizContainer');
+            quizContainer.innerHTML = '';
+            
+            if (!artwork.quiz || artwork.quiz.length === 0) {
+                quizContainer.innerHTML = '<p>此作品暫無問答遊戲</p>';
+                return;
+            }
+            
+            // 只顯示第一個問題
+            const quiz = artwork.quiz[0];
+            
+            const quizElement = document.createElement('div');
+            
+            const question = document.createElement('div');
+            question.className = 'quiz-question';
+            question.textContent = quiz.question;
+            quizElement.appendChild(question);
+            
+            const options = document.createElement('div');
+            options.className = 'quiz-options';
+            
+            quiz.options.forEach((option, idx) => {
+                const optionButton = document.createElement('div');
+                optionButton.className = 'quiz-option';
+                optionButton.textContent = option;
+                optionButton.dataset.index = idx;
+                
+                optionButton.addEventListener('click', function() {
+                    // 移除所有選項的正確/錯誤樣式
+                    document.querySelectorAll('.quiz-option').forEach(opt => {
+                        opt.classList.remove('correct', 'incorrect');
+                    });
+                    
+                    // 檢查答案
+                    const isCorrect = parseInt(this.dataset.index) === quiz.answer;
+                    
+                    // 設置結果樣式
+                    if (isCorrect) {
+                        this.classList.add('correct');
+                    } else {
+                        this.classList.add('incorrect');
+                        // 高亮正確答案
+                        options.children[quiz.answer].classList.add('correct');
+                    }
+                    
+                    // 顯示解釋
+                    result.textContent = isCorrect ? '正確！' : '答錯了！';
+                    result.classList.add(isCorrect ? 'correct' : 'incorrect');
+                    explanation.textContent = quiz.explanation;
+                    resultContainer.style.display = 'block';
+                    
+                    // 如果答對了，顯示下一題按鈕（如果有下一題）
+                    if (isCorrect && artwork.quiz.length > 1) {
+                        nextButton.style.display = 'block';
+                    }
+                });
+                
+                options.appendChild(optionButton);
+            });
+            
+            quizElement.appendChild(options);
+            
+            // 結果和解釋
+            const resultContainer = document.createElement('div');
+            resultContainer.style.display = 'none';
+            resultContainer.className = 'mt-4';
+            
+            const result = document.createElement('div');
+            result.className = 'font-bold mb-2';
+            
+            const explanation = document.createElement('div');
+            
+            // 下一題按鈕
+            const nextButton = document.createElement('button');
+            nextButton.textContent = '下一題';
+            nextButton.className = 'interaction-button mt-4';
+            nextButton.style.display = 'none';
+            nextButton.addEventListener('click', () => {
+                // 旋轉顯示下一個問題
+                artwork.quiz.push(artwork.quiz.shift());
+                renderQuiz(artwork);
+            });
+            
+            resultContainer.appendChild(result);
+            resultContainer.appendChild(explanation);
+            resultContainer.appendChild(nextButton);
+            
+            quizElement.appendChild(resultContainer);
+            
+            quizContainer.appendChild(quizElement);
+        }
+        
+        // 渲染小遊戲 - 增強版季節猜猜看遊戲
+        function renderMiniGame(artwork) {
+            const gameContainer = document.getElementById('miniGameContainer');
+            gameContainer.innerHTML = '';
+            
+            if (!artwork.miniGame) {
+                gameContainer.innerHTML = '<p>此作品暫無小遊戲</p>';
+                return;
+            }
+            
+            const game = artwork.miniGame;
+            
+            if (game.title.includes('季節猜猜看') && artwork.id === 1) {
+                // 增強版季節猜猜看小遊戲
+                const seasonGameContainer = document.createElement('div');
+                seasonGameContainer.className = 'season-game-container';
+                
+                // 標題部分
+                const titleElem = document.createElement('h4');
+                titleElem.className = 'font-bold mb-3';
+                titleElem.textContent = game.title;
+                
+                const instruction = document.createElement('p');
+                instruction.className = 'mb-4';
+                instruction.textContent = game.instruction;
+                
+                seasonGameContainer.appendChild(titleElem);
+                seasonGameContainer.appendChild(instruction);
+                
+                // 季節選擇部分
+                const questionElem = document.createElement('div');
+                questionElem.className = 'mb-4 font-medium';
+                questionElem.textContent = '請猜一猜：以下這隻貓咪的衣飾適合哪個季節？';
+                seasonGameContainer.appendChild(questionElem);
+                
+                // 圖片展示部分
+                const catImageDiv = document.createElement('div');
+                catImageDiv.className = 'w-full h-40 bg-gray-100 dark:bg-gray-700 rounded-lg mb-4 flex justify-center items-center';
+                catImageDiv.innerHTML = `<img src="https://i.imgur.com/poRRVDI.jpeg" alt="Cat with clothes" class="h-full rounded-lg">`;
+                seasonGameContainer.appendChild(catImageDiv);
+                
+                // 季節選擇
+                const seasonPicker = document.createElement('div');
+                seasonPicker.className = 'season-picker';
+                
+                // 檢查是否有seasons數據
+                const seasons = artwork.miniGame.seasons || [
+                    { name: "春季", icon: "fa-seedling", color: "#a0e57c" },
+                    { name: "夏季", icon: "fa-sun", color: "#f9d71c" },
+                    { name: "秋季", icon: "fa-leaf", color: "#e67e22" },
+                    { name: "冬季", icon: "fa-snowflake", color: "#3498db" }
+                ];
+                
+                const correctAnswer = artwork.miniGame.answer || 1; // 默認夏季
+                
+                seasons.forEach((season, index) => {
+                    const seasonBtn = document.createElement('div');
+                    seasonBtn.className = 'season-btn';
+                    seasonBtn.style.borderColor = season.color;
+                    seasonBtn.innerHTML = `<i class="fas ${season.icon}"></i>${season.name}`;
+                    
+                    seasonBtn.addEventListener('click', function() {
+                        // 移除所有按鈕的active狀態
+                        document.querySelectorAll('.season-btn').forEach(btn => {
+                            btn.classList.remove('active');
+                        });
+                        
+                        // 激活當前按鈕
+                        this.classList.add('active');
+                        
+                        // 檢查答案
+                        const isCorrect = index === correctAnswer;
+                        
+                        // 顯示反饋
+                        const feedbackElem = document.getElementById('seasonFeedback');
+                        if (isCorrect) {
+                            feedbackElem.textContent = '正確！這件衣服確實很適合' + season.name + '穿著。';
+                            feedbackElem.className = 'season-feedback correct';
+                        } else {
+                            feedbackElem.textContent = '嗯，這不太對。再想想看？';
+                            feedbackElem.className = 'season-feedback incorrect';
+                        }
+                    });
+                    
+                    seasonPicker.appendChild(seasonBtn);
+                });
+                
+                seasonGameContainer.appendChild(seasonPicker);
+                
+                // 添加反饋元素
+                const feedbackElem = document.createElement('div');
+                feedbackElem.id = 'seasonFeedback';
+                feedbackElem.className = 'season-feedback';
+                seasonGameContainer.appendChild(feedbackElem);
+                
+                // 貓咪設計部分
+                const catDesignerSection = document.createElement('div');
+                catDesignerSection.className = 'cat-designer';
+                
+                const designTitle = document.createElement('h5');
+                designTitle.className = 'font-bold mb-3';
+                designTitle.textContent = '設計你自己的季節貓衣服';
+                
+                // 貓咪預覽區域
+                const catPreview = document.createElement('div');
+                catPreview.className = 'cat-preview';
+                
+                // 貓咪基本圖
+                const catBase = document.createElement('img');
+                catBase.className = 'cat-base';
+                catBase.src = 'https://i.imgur.com/poRRVDI.jpeg';
+                catBase.alt = 'Cat Base';
+                
+                // 貓咪衣服層
+                const catClothes = document.createElement('div');
+                catClothes.className = 'cat-clothes';
+                catClothes.id = 'catClothes';
+                
+                catPreview.appendChild(catBase);
+                catPreview.appendChild(catClothes);
+                
+                // 設計工具區
+                const designTools = document.createElement('div');
+                designTools.className = 'design-tools';
+                
+                // 顏色選擇器
+                const colorSection = document.createElement('div');
+                colorSection.className = 'tool-section';
+                
+                const colorTitle = document.createElement('div');
+                colorTitle.className = 'tool-title';
+                colorTitle.innerHTML = '<i class="fas fa-palette"></i>選擇顏色';
+                
+                const colorPalette = document.createElement('div');
+                colorPalette.className = 'color-palette';
+                
+                const colors = ['#FF6B6B', '#4ECDC4', '#FFD166', '#6A0572', '#1A535C', '#F76F8E', '#2C786C'];
+                colors.forEach(color => {
+                    const colorSwatch = document.createElement('div');
+                    colorSwatch.className = 'color-swatch';
+                    colorSwatch.style.backgroundColor = color;
+                    
+                    colorSwatch.addEventListener('click', () => {
+                        document.querySelectorAll('.color-swatch').forEach(swatch => {
+                            swatch.style.border = '2px solid transparent';
+                        });
+                        colorSwatch.style.border = '2px solid #5D5CDE';
+                        
+                        // 更新貓衣服顏色
+                        const clothesStyle = document.getElementById('catClothes').style;
+                        const pattern = document.querySelector('.pattern-option.active');
+                        if (pattern) {
+                            clothesStyle.backgroundColor = color;
+                        }
+                    });
+                    
+                    colorPalette.appendChild(colorSwatch);
+                });
+                
+                colorSection.appendChild(colorTitle);
+                colorSection.appendChild(colorPalette);
+                
+                // 圖案選擇器
+                const patternSection = document.createElement('div');
+                patternSection.className = 'tool-section';
+                
+                const patternTitle = document.createElement('div');
+                patternTitle.className = 'tool-title';
+                patternTitle.innerHTML = '<i class="fas fa-th"></i>選擇圖案';
+                
+                const patternOptions = document.createElement('div');
+                patternOptions.className = 'pattern-options';
+                
+                // 使用seasons中定義的pattern_id
+                seasons.forEach((season, index) => {
+                    const patternOption = document.createElement('div');
+                    patternOption.className = 'pattern-option';
+                    if (index === 0) patternOption.classList.add('active');
+                    
+                    const patternImg = document.createElement('img');
+                    patternImg.src = document.getElementById(season.pattern).src;
+                    patternImg.alt = season.name + ' Pattern';
+                    
+                    patternOption.appendChild(patternImg);
+                    
+                    patternOption.addEventListener('click', () => {
+                        document.querySelectorAll('.pattern-option').forEach(option => {
+                            option.classList.remove('active');
+                        });
+                        patternOption.classList.add('active');
+                        
+                        // 更新貓衣服圖案
+                        const catClothes = document.getElementById('catClothes');
+                        catClothes.style.backgroundImage = `url(${patternImg.src})`;
+                        catClothes.style.backgroundSize = 'cover';
+                        catClothes.style.opacity = '0.8';
+                    });
+                    
+                    patternOptions.appendChild(patternOption);
+                });
+                
+                patternSection.appendChild(patternTitle);
+                patternSection.appendChild(patternOptions);
+                
+                // 保存設計按鈕
+                const saveBtn = document.createElement('button');
+                saveBtn.className = 'save-design-btn';
+                saveBtn.innerHTML = '<i class="fas fa-save mr-2"></i>保存我的設計';
+                saveBtn.addEventListener('click', function() {
+                    this.innerHTML = '<i class="fas fa-check mr-2"></i>設計已保存！';
+                    setTimeout(() => {
+                        this.innerHTML = '<i class="fas fa-save mr-2"></i>保存我的設計';
+                    }, 2000);
+                });
+                
+                // 組合設計工具
+                designTools.appendChild(colorSection);
+                designTools.appendChild(patternSection);
+                designTools.appendChild(saveBtn);
+                
+                catDesignerSection.appendChild(designTitle);
+                catDesignerSection.appendChild(catPreview);
+                catDesignerSection.appendChild(designTools);
+                
+                seasonGameContainer.appendChild(catDesignerSection);
+                
+                // 添加到遊戲容器
+                gameContainer.appendChild(seasonGameContainer);
+                
+                // 初始化模式
+                const firstPattern = document.querySelector('.pattern-option');
+                if (firstPattern) {
+                    const patternImg = firstPattern.querySelector('img');
+                    const catClothes = document.getElementById('catClothes');
+                    catClothes.style.backgroundImage = `url(${patternImg.src})`;
+                    catClothes.style.backgroundSize = 'cover';
+                    catClothes.style.opacity = '0.8';
+                }
+                
+                const firstColor = document.querySelector('.color-swatch');
+                if (firstColor) {
+                    firstColor.style.border = '2px solid #5D5CDE';
+                    const color = firstColor.style.backgroundColor;
+                    document.getElementById('catClothes').style.backgroundColor = color;
+                }
+            } else {
+                // 標準遊戲顯示
+                const gameElement = document.createElement('div');
+                gameElement.className = 'p-4 bg-gray-100 dark:bg-gray-800 rounded-lg';
+                
+                const title = document.createElement('h4');
+                title.className = 'font-bold mb-3';
+                title.textContent = game.title;
+                
+                const instruction = document.createElement('p');
+                instruction.textContent = game.instruction;
+                
+                gameElement.appendChild(title);
+                gameElement.appendChild(instruction);
+                
+                // 根據不同的遊戲類型添加不同的交互元素
+                if (game.title.includes('故事接龍')) {
+                    const storyForm = document.createElement('div');
+                    storyForm.className = 'mt-4';
+                    
+                    const storyInput = document.createElement('textarea');
+                    storyInput.className = 'comment-input';
+                    storyInput.placeholder = '分享你對屯門的故事或記憶...';
+                    storyInput.rows = 3;
+                    
+                    const submitButton = document.createElement('button');
+                    submitButton.className = 'interaction-button mt-2';
+                    submitButton.textContent = '分享故事';
+                    
+                    storyForm.appendChild(storyInput);
+                    storyForm.appendChild(submitButton);
+                    
+                    gameElement.appendChild(storyForm);
+                } else if (game.title.includes('尋找自然符號')) {
+                    const symbolsSection = document.createElement('div');
+                    symbolsSection.className = 'mt-4';
+                    symbolsSection.innerHTML = `
+                        <h5 class="font-bold mb-2">上傳你發現的自然符號照片</h5>
+                        <button class="interaction-button">選擇照片</button>
+                    `;
+                    
+                    gameElement.appendChild(symbolsSection);
+                } else if (game.title.includes('擁抱打卡')) {
+                    const hugSection = document.createElement('div');
+                    hugSection.className = 'mt-4';
+                    hugSection.innerHTML = `
+                        <h5 class="font-bold mb-2">分享你的創意擁抱姿勢</h5>
+                        <button class="interaction-button">上傳照片</button>
+                    `;
+                    
+                    gameElement.appendChild(hugSection);
+                }
+                
+                gameContainer.appendChild(gameElement);
+            }
+        }
+        
+        // 關閉藝術品詳情面板
+        function closeArtworkDetail() {
+            document.getElementById('art-detail-panel').classList.remove('active');
+            
+            // 停止影片播放
+            const artVideo = document.getElementById('artVideo');
+            artVideo.src = '';
+        }
+        
+        // 切換導航狀態
+        function toggleNavigation() {
+            if (isNavigating) {
+                stopNavigation();
+                document.getElementById('navigateBtn').innerHTML = 
+                    '<i class="fas fa-directions"></i>開始導航';
+            } else {
+                if (!selectedArtwork) return;
+                
+                isNavigating = true;
+                document.getElementById('navigateBtn').innerHTML = 
+                    '<i class="fas fa-stop-circle"></i>停止導航';
+                
+                // 更新導航路線
+                if (userMarker) {
+                    updateNavigation(userMarker.getPosition(), selectedArtwork.position);
+                }
+            }
+        }
+        
+        // 打開藝術發展面板
+        function toggleArtDevelopmentPanel() {
+            document.getElementById('art-development-panel').classList.add('active');
+        }
+        
+        // 關閉藝術發展面板
+        function closeArtDevelopmentPanel() {
+            document.getElementById('art-development-panel').classList.remove('active');
+        }
+        
+        // 到達目的地
+        function reachDestination() {
+            isNavigating = false;
+            
+            // 更新按鈕文字
+            document.getElementById('navigateBtn').innerHTML = 
+                '<i class="fas fa-directions"></i>重新導航';
+            document.getElementById('startNavigation').innerHTML = 
+                '<i class="fas fa-directions"></i> 開始導航';
+            document.getElementById('startNavigation').addEventListener('click', startNavigation, { once: true });
+            
+            // 播放影片和顯示互動內容
+            if (selectedArtwork) {
+                if (selectedArtwork.videoSrc) {
+                    const artVideo = document.getElementById('artVideo');
+                    artVideo.src = selectedArtwork.videoSrc;
+                    document.getElementById('artMedia').classList.remove('hidden');
+                }
+                
+                if (selectedArtwork.interaction) {
+                    document.getElementById('artInteraction').classList.remove('hidden');
+                }
+            }
+            
+            // 顯示到達提示
+            showArrivalDialog();
+        }
+        
+        // 顯示到達提示對話框
+        function showArrivalDialog() {
+            const dialogContent = $(`
+                <div>
+                    <h3 class="text-xl font-bold mb-3">恭喜您已到達目的地！</h3>
+                    <p class="mb-4">您已抵達 ${selectedArtwork.title}，請欣賞這件藝術品並參與互動內容。</p>
+                    <div class="text-center">
+                        <button id="viewArtBtn" class="bg-blue-500 text-white px-4 py-2 rounded">查看藝術品詳情</button>
+                    </div>
+                </div>
+            `);
+            
+            const dialog = $('<div></div>').append(dialogContent).dialog({
+                title: '到達目的地',
+                modal: true,
+                width: Math.min(400, window.innerWidth - 40),
+                buttons: {
+                    "關閉": function() {
+                        $(this).dialog("close");
+                    }
+                }
+            });
+            
+            $('#viewArtBtn').on('click', function() {
+                dialog.dialog('close');
+                openArtworkDetail(selectedArtwork);
+            });
+        }
+        
+        // 創建互動內容
+        function createInteractionContent(interaction) {
+            const container = document.getElementById('interactionContent');
+            container.innerHTML = '';
+            
+            switch (interaction.type) {
+                case 'quiz':
+                    createQuizInteraction(interaction, container);
+                    break;
+                case 'slider':
+                    createSliderInteraction(interaction, container);
+                    break;
+                case 'color':
+                    createColorInteraction(interaction, container);
+                    break;
+            }
+        }
+        
+        // 創建測驗互動
+        function createQuizInteraction(quiz, container) {
+            const question = document.createElement('p');
+            question.className = 'font-medium mb-3';
+            question.textContent = quiz.question;
+            container.appendChild(question);
+            
+            const optionsContainer = document.createElement('div');
+            optionsContainer.className = 'options-container flex flex-col gap-2';
+            
+            quiz.options.forEach((option, index) => {
+                const optionBtn = document.createElement('button');
+                optionBtn.className = 'p-3 bg-gray-100 dark:bg-gray-700 rounded-lg text-left hover:bg-gray-200 dark:hover:bg-gray-600 transition';
+                optionBtn.textContent = option;
+                
+                optionBtn.addEventListener('click', () => {
+                    document.querySelectorAll('.options-container button').forEach(btn => {
+                        btn.classList.remove('bg-green-200', 'bg-red-200', 'dark:bg-green-800', 'dark:bg-red-800');
+                    });
+                    
+                    if (index === quiz.answer) {
+                        optionBtn.classList.add('bg-green-200', 'dark:bg-green-800');
+                        feedback.textContent = '正確！';
+                        feedback.className = 'feedback mt-3 py-2 px-3 rounded-lg bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100';
+                    } else {
+                        optionBtn.classList.add('bg-red-200', 'dark:bg-red-800');
+                        const correctOption = document.querySelectorAll('.options-container button')[quiz.answer];
+                        correctOption.classList.add('bg-green-200', 'dark:bg-green-800');
+                        feedback.textContent = '答錯了，請再試一次！';
+                        feedback.className = 'feedback mt-3 py-2 px-3 rounded-lg bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100';
+                    }
+                    
+                    feedback.style.display = 'block';
+                });
+                
+                optionsContainer.appendChild(optionBtn);
+            });
+            
+            container.appendChild(optionsContainer);
+            
+            const feedback = document.createElement('p');
+            feedback.className = 'feedback mt-3 py-2 px-3 rounded-lg';
+            feedback.style.display = 'none';
+            container.appendChild(feedback);
+        }
+        
+        // 創建滑桿互動
+        function createSliderInteraction(sliderData, container) {
+            const title = document.createElement('p');
+            title.className = 'font-medium mb-3';
+            title.textContent = sliderData.title;
+            container.appendChild(title);
+            
+            const sliderContainer = document.createElement('div');
+            sliderContainer.className = 'flex items-center gap-3';
+            
+            const slider = document.createElement('input');
+            slider.type = 'range';
+            slider.min = sliderData.min;
+            slider.max = sliderData.max;
+            slider.value = sliderData.default;
+            slider.className = 'w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-600';
+            
+            const valueDisplay = document.createElement('span');
+            valueDisplay.className = 'slider-value w-10 text-center';
+            valueDisplay.textContent = sliderData.default;
+            
+            sliderContainer.appendChild(slider);
+            sliderContainer.appendChild(valueDisplay);
+            container.appendChild(sliderContainer);
+            
+            const preview = document.createElement('div');
+            preview.className = 'slider-preview mt-5 bg-gray-100 dark:bg-gray-700 p-4 rounded-lg flex items-center justify-center';
+            preview.style.height = '200px';
+            
+            const previewImg = document.createElement('div');
+            previewImg.className = 'w-32 h-32 bg-primary rounded-lg transition-all duration-300';
+            previewImg.style.backgroundColor = '#5D5CDE';
+            previewImg.style.transform = `rotate(${sliderData.default}deg)`;
+            
+            slider.addEventListener('input', () => {
+                valueDisplay.textContent = slider.value;
+                previewImg.style.transform = `rotate(${slider.value}deg)`;
+            });
+            
+            preview.appendChild(previewImg);
+            container.appendChild(preview);
+        }
+        
+        // 創建顏色互動
+        function createColorInteraction(colorData, container) {
+            const title = document.createElement('p');
+            title.className = 'font-medium mb-3';
+            title.textContent = colorData.title;
+            container.appendChild(title);
+            
+            const colorPalette = document.createElement('div');
+            colorPalette.className = 'color-palette';
+            
+            const previewContainer = document.createElement('div');
+            previewContainer.className = 'preview-container bg-gray-100 dark:bg-gray-700 p-4 rounded-lg flex items-center justify-center';
+            previewContainer.style.height = '200px';
+            
+            const colorPreview = document.createElement('div');
+            colorPreview.className = 'color-preview w-full h-full rounded-lg transition-all duration-300';
+            colorPreview.style.backgroundColor = colorData.colors[0];
+            
+            colorData.colors.forEach((color, index) => {
+                const colorSwatch = document.createElement('div');
+                colorSwatch.className = 'color-swatch';
+                colorSwatch.style.backgroundColor = color;
+                
+                colorSwatch.addEventListener('click', () => {
+                    document.querySelectorAll('.color-swatch').forEach(swatch => {
+                        swatch.style.border = '2px solid transparent';
+                    });
+                    colorSwatch.style.border = '2px solid #5D5CDE';
+                    colorPreview.style.backgroundColor = color;
+                });
+                
+                if (index === 0) {
+                    colorSwatch.style.border = '2px solid #5D5CDE';
+                }
+                
+                colorPalette.appendChild(colorSwatch);
+            });
+            
+            container.appendChild(colorPalette);
+            previewContainer.appendChild(colorPreview);
+            container.appendChild(previewContainer);
+        }
+        
+        // 添加留言
+        function addComment(text) {
+            const commentList = document.getElementById('commentList');
+            
+            const commentItem = document.createElement('div');
+            commentItem.className = 'comment-item';
+            
+            const commentHeader = document.createElement('div');
+            commentHeader.className = 'comment-header';
+            
+            const author = document.createElement('div');
+            author.className = 'comment-author';
+            author.textContent = '匿名訪客';
+            
+            const date = document.createElement('div');
+            date.className = 'comment-date';
+            date.textContent = new Date().toLocaleString();
+            
+            const content = document.createElement('div');
+            content.className = 'comment-content';
+            content.textContent = text;
+            
+            commentHeader.appendChild(author);
+            commentHeader.appendChild(date);
+            
+            commentItem.appendChild(commentHeader);
+            commentItem.appendChild(content);
+            
+            commentList.prepend(commentItem);
+        }
+        
+        // 將地圖中心設為用戶位置
+        function centerMapToUser() {
+            if (userMarker) {
+                map.setCenter(userMarker.getPosition());
+                map.setZoom(18);
+            } else {
+                alert("無法獲取您的位置，請確認已授權位置訪問權限。");
+            }
+        }
+        
+        // 縮放地圖
+        function zoomMap(delta) {
+            const currentZoom = map.getZoom();
+            map.setZoom(currentZoom + delta);
+        }
+
+        // 檢查是否支持深色模式
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+
+        // 監聽深色模式變化
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+    </script>
+</body>
+</html>
